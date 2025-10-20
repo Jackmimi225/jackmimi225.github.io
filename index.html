@@ -1,0 +1,59 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>骰子旅行 · 作品集</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <header class="site-header">
+    <h1>骰子旅行 · 作品集</h1>
+    <p>掷骰子前进，走到哪儿就看哪件作品。</p>
+  </header>
+
+  <main class="layout">
+    <section class="board-wrap">
+      <div id="board" class="board" aria-label="游戏棋盘" role="application"></div>
+      <div id="token" class="token" aria-hidden="true"></div>
+    </section>
+
+    <aside class="panel">
+      <div class="dice-box">
+        <div id="dice" class="dice" aria-live="polite" aria-atomic="true">🎲</div>
+        <button id="rollBtn" class="btn">掷骰子</button>
+      </div>
+      <div class="info">
+        <h2>当前位置</h2>
+        <p id="posText">起点</p>
+        <h2>说明</h2>
+        <p>点击“掷骰子”，棋子会沿着外圈格子移动。停在哪个格子，就会弹出对应作品卡片。</p>
+      </div>
+      <footer class="foot">
+        <small>纯前端 · 可直接部署到 GitHub Pages</small>
+      </footer>
+    </aside>
+  </main>
+
+  <!-- 作品弹窗 -->
+  <div id="modal" class="modal" hidden>
+    <div class="modal__backdrop" data-close="1"></div>
+    <section class="modal__card" role="dialog" aria-modal="true" aria-labelledby="mTitle">
+      <button class="modal__close" aria-label="关闭" data-close="1">×</button>
+      <div class="modal__media" id="mMedia" aria-hidden="true"></div>
+      <div class="modal__body">
+        <h3 id="mTitle"></h3>
+        <p id="mDesc"></p>
+        <div class="modal__actions">
+          <a id="mLink" class="btn btn--ghost" href="#" target="_blank" rel="noopener">查看详情</a>
+        </div>
+      </div>
+    </section>
+  </div>
+
+  <script src="script.js"></script>
+</body>
+</html>

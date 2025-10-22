@@ -9,11 +9,12 @@
 <body>
   <div class="stage">
     <div class="viewport" id="vp">
-      <!-- 可拖拽的容器（整块移动） -->
+      <!-- 整个可拖拽容器 -->
       <div class="dice" id="dice">
-        <!-- 展开时出现的地图底图（跟随骰子位置） -->
+        <!-- 展开图底图：一直可见，展开时更亮 -->
         <div class="netBg" aria-hidden="true"></div>
-        <!-- 3D 骰子本体 -->
+
+        <!-- 3D 骰子本体（按住它来拖拽） -->
         <div id="cube" class="cube show-1" role="button" aria-label="dice">
           <div class="face face--top"><span>1</span></div>
           <div class="face face--bottom"><span>6</span></div>
@@ -22,7 +23,8 @@
           <div class="face face--right"><span>3</span></div>
           <div class="face face--left"><span>4</span></div>
         </div>
-        <!-- 展开后落点标记（相对 dice 容器定位） -->
+
+        <!-- 展开后数字落点标记（相对 dice 容器） -->
         <div id="marker" class="marker" aria-hidden="true">●</div>
       </div>
     </div>
@@ -45,3 +47,4 @@
   <script src="app.js"></script>
 </body>
 </html>
+

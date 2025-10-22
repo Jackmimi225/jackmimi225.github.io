@@ -51,8 +51,8 @@ body{
   font-weight:800; font-size:56px; color:#0f172a;
   background:#fff; border-radius:16px; border:1px solid rgba(255,255,255,.25);
   box-shadow:inset 0 0 0 2px rgba(0,0,0,.03);
-  outline: 1px dashed rgba(0,0,0,.06);
-  outline-offset: -6px;
+  outline:1px dashed rgba(0,0,0,.08);
+  outline-offset:-6px;
 }
 .face span{pointer-events:none}
 .face--front{ transform:translateZ(calc(var(--size)/2)) }
@@ -92,13 +92,16 @@ body{
 .cube.unfold .face--right { transform:translateZ(0) translate3d(var(--size),0,0) }
 .cube.unfold .face--back  { transform:translateZ(0) translate3d(0,calc(2*var(--size)),0) }
 
-/* 棋子标记（真正圆点，固定尺寸） */
+/* 棋子标记（圆点），用 CSS 变量控制相对骰子中心的偏移 */
 .marker{
-  position:absolute; left:50%; top:50%; transform:translate(-50%,-50%);
-  width:10px; height:10px; border-radius:50%;
+  position:absolute; left:50%; top:50%;
+  width:12px; height:12px; border-radius:50%;
   background:#ef4444; box-shadow:0 0 0 2px rgba(239,68,68,.25);
   opacity:0; z-index:2;
-  transition:opacity .2s ease, left .35s ease, top .35s ease;
+  --dx:0px; --dy:0px;                                    /* 关键：偏移量 */
+  transform: translate(calc(-50% + var(--dx)),           /* 用 transform 而不是 left/top */
+                       calc(-50% + var(--dy)));
+  transition: opacity .2s ease, transform .34s ease;     /* 平滑“踩格子” */
 }
 .marker.show{ opacity:1 }
 

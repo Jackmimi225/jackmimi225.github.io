@@ -1,19 +1,21 @@
 // ===== 基本尺寸（与 CSS 的 --size 保持一致） =====
 const SIZE = parseInt(getComputedStyle(document.documentElement).getPropertyValue('--size')) || 200;
 
-// ===== 六个展开块（即六个数字格）：顺时针 1→2→3→4→5→6 =====
-// 布局示意：
-//           [1 TOP]
-//   [4 LEFT][2 FRONT][3 RIGHT]
-//           [6 BOTTOM]
-//           [5 BACK]
+/* 六个展开块（顺时针数字 1→2→3→4→6→5）：
+   展平布局：
+           [1 TOP]
+   [4 LEFT][2 FRONT][3 RIGHT]
+           [6 BOTTOM]
+           [5 BACK]  (最下)
+   用选择器锁定每一块，展开后实时量测其中心。
+*/
 const TILES = [
-  { num: 1, sel: '.face--top'    }, // 1 顶
-  { num: 2, sel: '.face--front'  }, // 2 前
-  { num: 3, sel: '.face--right'  }, // 3 右
-  { num: 4, sel: '.face--left'   }, // 4 左
-  { num: 6, sel: '.face--bottom' }, // 6 下
-  { num: 5, sel: '.face--back'   }, // 5 最下
+  { num: 1, sel: '.face--top'    }, // 顶
+  { num: 2, sel: '.face--front'  }, // 前
+  { num: 3, sel: '.face--right'  }, // 右
+  { num: 4, sel: '.face--left'   }, // 左
+  { num: 6, sel: '.face--bottom' }, // 下
+  { num: 5, sel: '.face--back'   }, // 最下
 ];
 
 // 数字 -> 作品（按需改）
@@ -43,8 +45,8 @@ let start = { x:0, y:0 };
 let origin= { x:0, y:0 };
 let lastMoves = [];
 let unfolded = false;
-let posIndex = 0;                 // 当前所在“数字格”的索引（TILES 下标，默认在 1 号格）
-let centers = {};                 // 展开后量测得到：num -> {x,y}（相对 dice 中心的偏移）
+let posIndex = 0;         // 当前停留的“数字格”（TILES 下标），默认 1 号格
+let centers = {};         // 展开后量测得到：num -> {x,y}（相对 dice 中心的偏移）
 
 // 初始：把当前位置转为 left/top 绝对定位
 (function initPos(){
@@ -102,20 +104,20 @@ async function onUp(){
   const rect = dice.getBoundingClientRect();
   origin.x = rect.left; origin.y = rect.top;
 
-  // 1) 松手 → 摇骰（滚动动画结束时，骰子定格到 n）
+  // 1) 松手 → 摇骰（结束时定格到 n）
   const { steps, final } = getRollPlan();
   const n = await animateRoll(steps, final);
 
-  // 2) 定格后给观众看清数字：停留 2.5s
+  // 2) 定格后停留 2.5 秒展示数字
   await sleep(2500);
 
-  // 3) 展开为正面平面网，并量测每一块面的中心坐标
-  await enterUnfold();      // 内部会调用 computeCenters()
+  // 3) 展开为正面平面网，并量测每块面的中心
+  await enterUnfold();      // 内部 nextFrame + computeCenters
 
   // 4) 从“当前数字格”逐格走到“n 号格”
   await moveToNumber(n);
 
-  // 5) 到达后显示 n 号作品
+  // 5) 到达后显示作品
   openProject(n);
 }
 
@@ -168,11 +170,11 @@ async function enterUnfold(){
   dice.classList.add('unfolding');    // 底图更亮
   cube.classList.add('unfold');       // 纸盒网摊开
 
-  // 等一帧，让布局/transform 生效，再量测中心
-  await nextFrame();
+  // 等两帧，确保布局/transform 稳定，再量测中心
+  await nextFrame(); await nextFrame();
   computeCenters();
 
-  // 初次展开：把 marker 放到当前数字格中心
+  // 初次展开：把红点放到当前数字格中心
   placeMarkerByNumber(TILES[posIndex].num);
   marker.classList.add('show');
   unfolded = true;
@@ -186,14 +188,12 @@ function computeCenters(){
   for (const t of TILES){
     const el = cube.querySelector(t.sel);
     const r = el.getBoundingClientRect();
-    const fx = r.left + r.width/2;
-    const fy = r.top  + r.height/2;
-    centers[t.num] = { x: fx - cx, y: fy - cy };   // 相对 dice 中心的偏移
+    centers[t.num] = { x: r.left + r.width/2 - cx, y: r.top + r.height/2 - cy };
   }
 }
 
-// —— 从当前 posIndex 逐格走到“n 号格”（顺时针）——
-const STEP_MS = 380; // 每步节奏（与 CSS 过渡配合）
+// —— 从当前 posIndex 逐格走到“n 号格”（顺时针，遇 6 回到 1）——
+const STEP_MS = 360; // 每步节奏（与 CSS .34s 过渡协调）
 async function moveToNumber(n){
   const targetIdx = TILES.findIndex(t => t.num === n);
   if (targetIdx === -1) return;
@@ -201,20 +201,18 @@ async function moveToNumber(n){
   let steps = (targetIdx - posIndex + TILES.length) % TILES.length; // 顺时针距离
   for (let k = 0; k < steps; k++){
     posIndex = (posIndex + 1) % TILES.length;
-    placeMarkerByNumber(TILES[posIndex].num);      // 精准到块中心
+    placeMarkerByNumber(TILES[posIndex].num); // 精准落到块中心
     await sleep(STEP_MS);
   }
 }
 
 function placeMarkerByNumber(num){
-  const p = centers[num];
-  const fallback = staticCenter(num);
-  const use = p || fallback;
-  marker.style.left = `calc(50% + ${use.x}px)`;
-  marker.style.top  = `calc(50% + ${use.y}px)`;
+  const p = centers[num] || staticCenter(num); // 兜底：静态几何
+  marker.style.setProperty('--dx', `${p.x}px`);
+  marker.style.setProperty('--dy', `${p.y}px`);
 }
 
-// 备用：静态计算（万一浏览器不支持量测时兜底）
+// 备用静态几何（万一浏览器拿不到 rect）
 function staticCenter(num){
   switch(num){
     case 1: return {x:0, y:-1*SIZE};

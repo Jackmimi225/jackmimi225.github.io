@@ -1,19 +1,30 @@
 // ===== 基本配置 =====
 const SIZE = parseInt(getComputedStyle(document.documentElement).getPropertyValue('--size')) || 200;
 
-// 展开图上的“棋盘路径”（像大富翁那样绕一圈）——共 10 格：沿 3×4 边框一圈走
-const cell = (i,j) => ({ x: (-SIZE + SIZE/2) + i*SIZE, y: (-SIZE + SIZE/2) + j*SIZE });
-// 顺时针：上边 3 → 右边 3 → 下边 2 → 左边 2 = 10 格
-const route = [
-  cell(0,0), cell(1,0), cell(2,0),
-  cell(2,1), cell(2,2), cell(2,3),
-  cell(1,3), cell(0,3),
-  cell(0,2), cell(0,1),
-];
-// 每格落地后的作品编号（可自定义）；这里默认循环 1..6
-const routeProjects = [1,2,3,4,5,6,1,2,3,4];
+/* ✅ 每个展开块（六个面）即是一个格子：块中心作为落点 */
+const TILES = {
+  FRONT:  { x: 0,       y: 0 },
+  RIGHT:  { x: +1*SIZE, y: 0 },
+  BOTTOM: { x: 0,       y: +1*SIZE },
+  LEFT:   { x: -1*SIZE, y: 0 },
+  TOP:    { x: 0,       y: -1*SIZE },
+  BACK:   { x: 0,       y: +2*SIZE },
+};
 
-// 你的作品
+/* ✅ 路线顺序（可自定义顺序） */
+const route = [
+  TILES.FRONT,
+  TILES.RIGHT,
+  TILES.BOTTOM,
+  TILES.LEFT,
+  TILES.TOP,
+  TILES.BACK,
+];
+
+/* ✅ 每格映射到哪个作品（可按你的作品顺序改） */
+const routeProjects = [1, 2, 3, 4, 5, 6];
+
+/* 你的作品数据 */
 const projects = {
   1: { title: '作品 1', desc: '示例：Unity 交互文字实验。', link: '#' },
   2: { title: '作品 2', desc: '示例：p5.js 生成海报系列。', link: '#' },
@@ -39,7 +50,7 @@ let rolling  = false;
 let start = { x:0, y:0 };
 let origin= { x:0, y:0 };
 let lastMoves = [];
-let posIndex = 0;           // 棋盘当前位置索引（0..route.length-1）
+let posIndex = 0;           // 棋盘当前位置（指 route 数组下标）
 let unfolded = false;       // 是否处于展开视角
 
 // 初始：把当前位置转为 left/top 绝对定位
@@ -59,7 +70,8 @@ const point = e => (e.touches && e.touches[0])
 function onDown(e){
   if (rolling) return;
   if (e.button !== undefined && e.button !== 0) return; // 仅左键
-  // 收起（下次重新展开）
+
+  // 收起（准备下一轮）
   vp.classList.remove('flat'); unfolded = false;
   cube.classList.remove('unfold');
   marker.classList.remove('show');
@@ -75,7 +87,6 @@ function onDown(e){
   dice.setPointerCapture?.(e.pointerId);
   e.preventDefault?.();
 }
-
 function onMove(e){
   if (!dragging) return;
   const p = point(e);
@@ -84,13 +95,12 @@ function onMove(e){
   dice.style.left = (origin.x + dx) + 'px';
   dice.style.top  = (origin.y + dy) + 'px';
 
-  // 用于估算“力度” + 微倾反馈
+  // 估算“力度” + 微倾反馈
   lastMoves.push({dx, dy, t: performance.now()});
   if (lastMoves.length > 32) lastMoves.shift();
   cube.style.setProperty('--rx', (-dy * 0.15) + 'deg');
   cube.style.setProperty('--ry', ( dx * 0.18) + 'deg');
 }
-
 async function onUp(){
   if (!dragging) return;
   dragging = false;
@@ -101,25 +111,25 @@ async function onUp(){
   const rect = dice.getBoundingClientRect();
   origin.x = rect.left; origin.y = rect.top;
 
-  // ===== 1) 松手 → 摇骰 =====
+  // 1) 松手 → 摇骰
   const { steps, final } = getRollPlan();
-  const n = await animateRoll(steps, final);   // 此时骰子已定格到 n
+  const n = await animateRoll(steps, final);
 
-  // ===== 2) 定格后给观众看清数字（停留 2.5 秒）=====
+  // 2) 定格后停留 2.5 秒展示数字
   await sleep(2500);
 
-  // ===== 3) 再展开为平面网（正面朝向）=====
+  // 3) 展开为正面平面网
   enterUnfold();
 
-  // ===== 4) 在“棋盘路径”上逐格前进 n 步 =====
+  // 4) 像大富翁在“格子”（6 个块中心）里逐步走 n 步
   await moveSteps(n);
 
-  // ===== 5) 到达后再显示作品 =====
+  // 5) 到达后显示作品（按 route 对应）
   const projId = routeProjects[posIndex];
   openProject(projId);
 }
 
-// 事件绑定：Pointer / Mouse / Touch
+// 事件绑定（Pointer / Mouse / Touch）
 cube.addEventListener('pointerdown', onDown);
 window.addEventListener('pointermove', onMove);
 window.addEventListener('pointerup',   onUp);
@@ -173,12 +183,12 @@ function enterUnfold(){
   unfolded = true;
 }
 
-// 逐格前进 n 步（像大富翁）
-const STEP_MS = 380; // 每步时间（与 CSS 里的 .35s 过渡相匹配）
+// 逐格前进 n 步（在“块中心”之间跳步）
+const STEP_MS = 380; // 每步时间，和 CSS 过渡配合
 async function moveSteps(n){
   for (let k = 0; k < n; k++){
     posIndex = (posIndex + 1) % route.length;
-    placeMarker(posIndex);            // CSS left/top 有过渡，形成“咔哒”感
+    placeMarker(posIndex);            // CSS 有 left/top 过渡，形成“咔哒”感
     await sleep(STEP_MS);
   }
 }

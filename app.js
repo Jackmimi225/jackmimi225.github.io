@@ -40,16 +40,15 @@ let activePointerId = null;         // 当前拖拽的指针 id（防多指混�
 
 // 工具
 const sleep = (ms)=>new Promise(r=>setTimeout(r,ms));
-const nextFrame = ()=>new Promise(r=>requestAnimationFrame(()=>r()));
 
-// =========== 全局捕获事件：只要点在骰子里就开始拖 ===========
-document.addEventListener('pointerdown', (e)=>{
+// ===== 在“骰子本身”上监听指针事件（参考早先可用版本） =====
+dice.addEventListener('pointerdown', (e)=>{
   if (rolling || activePointerId!==null) return;
   if (e.pointerType==='mouse' && e.button!==0) return;
-  if (!dice.contains(e.target)) return;
-
   e.preventDefault();
+
   activePointerId = e.pointerId;
+  try { dice.setPointerCapture && dice.setPointerCapture(activePointerId); } catch(_) {}
 
   // 收起上一轮
   vp.classList.remove('flat'); unfolded=false;
@@ -65,9 +64,9 @@ document.addEventListener('pointerdown', (e)=>{
 
   dice.style.willChange='left, top';
   cube.classList.add('grab');
-},{capture:true});
+});
 
-document.addEventListener('pointermove',(e)=>{
+window.addEventListener('pointermove', (e)=>{
   if(!dragging || e.pointerId!==activePointerId) return;
   e.preventDefault();
 
@@ -80,13 +79,15 @@ document.addEventListener('pointermove',(e)=>{
   lastMoves.push({dx,dy,t:performance.now()});
   if(lastMoves.length>32) lastMoves.shift();
 
+  // 可选：拖拽时略微倾斜（纯视觉）
   cube.style.setProperty('--rx', (-dy * 0.15) + 'deg');
   cube.style.setProperty('--ry', ( dx * 0.18) + 'deg');
-},{capture:true});
+});
 
-document.addEventListener('pointerup', async (e)=>{
+window.addEventListener('pointerup', async (e)=>{
   if(e.pointerId!==activePointerId) return;
   e.preventDefault();
+  try { dice.releasePointerCapture && dice.releasePointerCapture(activePointerId); } catch(_) {}
   activePointerId = null;
 
   if(!dragging) return;
@@ -110,34 +111,7 @@ document.addEventListener('pointerup', async (e)=>{
 
   // 5) 到达后弹作品
   openProject(n);
-},{capture:true});
-
-// —— 旧环境兜底（没有 PointerEvent 的浏览器）：可忽略 —— //
-if (!('PointerEvent' in window)) {
-  document.addEventListener('mousedown', (e)=>{
-    if (e.button!==0 || !dice.contains(e.target)) return;
-    e.preventDefault();
-    dragging=true;
-    const r=dice.getBoundingClientRect();
-    origin.x=r.left; origin.y=r.top;
-    start.x=e.clientX; start.y=e.clientY;
-    lastMoves.length=0;
-    dice.style.willChange='left, top'; cube.classList.add('grab');
-  }, {capture:true});
-  document.addEventListener('mousemove',(e)=>{
-    if(!dragging) return;
-    const dx=e.clientX-start.x, dy=e.clientY-start.y;
-    dice.style.left=(origin.x+dx)+'px';
-    dice.style.top =(origin.y+dy)+'px';
-  }, {capture:true});
-  document.addEventListener('mouseup', async (e)=>{
-    if(!dragging) return;
-    dragging=false; cube.classList.remove('grab'); dice.style.willChange='auto';
-    const r=dice.getBoundingClientRect(); origin.x=r.left; origin.y=r.top;
-    const {steps,final}=getRollPlan(); const n=await animateRoll(steps,final);
-    await sleep(2500); await enterUnfoldAndWait(); await highlightWalkTo(n); openProject(n);
-  }, {capture:true});
-}
+});
 
 // ====== 掷骰相关 ======
 function setFace(n){
@@ -246,11 +220,37 @@ function openProject(num){
   const item = projects[num] || { title:'作品 '+num, desc:'', link:'' };
   mTitle.textContent = item.title;
   mDesc.textContent  = item.desc;
-  if (item.link){ mLink.href=item.link; mLink.style.display='inline-block'; }
-  else { mLink.style.display='none'; }
+  if (item.link){ mLink.href = item.link; mLink.style.display = 'inline-block'; }
+  else { mLink.style.display = 'none'; }
   modal.hidden = false;
 }
 modal.addEventListener('click', e => { if (e.target.dataset.close) modal.hidden = true; });
 
 // 初始让骰子朝上 1
 setFace(1);
+
+// ====== 旧浏览器兜底（无 PointerEvent 时） ======
+if (!('PointerEvent' in window)) {
+  dice.addEventListener('mousedown', (e)=>{
+    if (e.button!==0) return; e.preventDefault();
+    dragging=true;
+    const r=dice.getBoundingClientRect();
+    origin.x=r.left; origin.y=r.top;
+    start.x=e.clientX; start.y=e.clientY;
+    lastMoves.length=0;
+    dice.style.willChange='left, top'; cube.classList.add('grab');
+  });
+  window.addEventListener('mousemove', (e)=>{
+    if(!dragging) return;
+    const dx=e.clientX-start.x, dy=e.clientY-start.y;
+    dice.style.left=(origin.x+dx)+'px';
+    dice.style.top =(origin.y+dy)+'px';
+  });
+  window.addEventListener('mouseup', async (e)=>{
+    if(!dragging) return;
+    dragging=false; cube.classList.remove('grab'); dice.style.willChange='auto';
+    const r=dice.getBoundingClientRect(); origin.x=r.left; origin.y=r.top;
+    const {steps,final}=getRollPlan(); const n=await animateRoll(steps,final);
+    await sleep(2500); await enterUnfoldAndWait(); await highlightWalkTo(n); openProject(n);
+  });
+}

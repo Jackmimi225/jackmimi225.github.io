@@ -1,20 +1,21 @@
 // ===== 基本尺寸（与 CSS 的 --size 保持一致） =====
 const SIZE = parseInt(getComputedStyle(document.documentElement).getPropertyValue('--size')) || 200;
 
-// ===== 六个展开块（即六个数字格）的中心坐标：顺时针定义 1→2→3→4→5→6 =====
-// 布局：
+// ===== 六个展开块（即六个数字格）：顺时针 1→2→3→4→5→6 =====
+// 布局示意：
 //           [1 TOP]
 //   [4 LEFT][2 FRONT][3 RIGHT]
-//           [5 BOTTOM]
-//           [6 BACK]
+//           [6 BOTTOM]
+//           [5 BACK]
 const TILES = [
-  { num: 1, x: 0,        y: -1*SIZE }, // 1 顶
-  { num: 2, x: 0,        y: 0        }, // 2 前
-  { num: 3, x: +1*SIZE,  y: 0        }, // 3 右
-  { num: 4, x: -1*SIZE,  y: 0        }, // 4 左
-  { num: 5, x: 0,        y: +1*SIZE  }, // 5 下
-  { num: 6, x: 0,        y: +2*SIZE  }, // 6 背（最下）
+  { num: 1, sel: '.face--top'    }, // 1 顶
+  { num: 2, sel: '.face--front'  }, // 2 前
+  { num: 3, sel: '.face--right'  }, // 3 右
+  { num: 4, sel: '.face--left'   }, // 4 左
+  { num: 6, sel: '.face--bottom' }, // 6 下
+  { num: 5, sel: '.face--back'   }, // 5 最下
 ];
+
 // 数字 -> 作品（按需改）
 const projects = {
   1: { title: '作品 1', desc: '示例：Unity 交互文字实验。', link: '#' },
@@ -42,11 +43,10 @@ let start = { x:0, y:0 };
 let origin= { x:0, y:0 };
 let lastMoves = [];
 let unfolded = false;
+let posIndex = 0;                 // 当前所在“数字格”的索引（TILES 下标，默认在 1 号格）
+let centers = {};                 // 展开后量测得到：num -> {x,y}（相对 dice 中心的偏移）
 
-// ✅ 当前所在“数字格”的索引（对应 TILES 的下标）。默认从 1 号格开始：
-let posIndex = 0; // 0=>数字1，1=>数字2，...，5=>数字6
-
-// 初始化：把当前位置转成 left/top 绝对定位
+// 初始：把当前位置转为 left/top 绝对定位
 (function initPos(){
   const rect = dice.getBoundingClientRect();
   origin.x = rect.left; origin.y = rect.top;
@@ -63,7 +63,6 @@ const point = e => (e.touches && e.touches[0])
 function onDown(e){
   if (rolling) return;
   if (e.button !== undefined && e.button !== 0) return; // 仅左键
-
   // 收起准备新一轮
   vp.classList.remove('flat'); unfolded = false;
   cube.classList.remove('unfold');
@@ -75,8 +74,8 @@ function onDown(e){
   start.x = p.x; start.y = p.y;
   lastMoves.length = 0;
 
-  cube.classList.add('grab');
   dice.style.willChange = 'left, top';
+  cube.classList.add('grab');
   dice.setPointerCapture?.(e.pointerId);
   e.preventDefault?.();
 }
@@ -88,7 +87,6 @@ function onMove(e){
   dice.style.left = (origin.x + dx) + 'px';
   dice.style.top  = (origin.y + dy) + 'px';
 
-  // 估算力度 + 微倾反馈
   lastMoves.push({dx, dy, t: performance.now()});
   if (lastMoves.length > 32) lastMoves.shift();
   cube.style.setProperty('--rx', (-dy * 0.15) + 'deg');
@@ -111,8 +109,8 @@ async function onUp(){
   // 2) 定格后给观众看清数字：停留 2.5s
   await sleep(2500);
 
-  // 3) 展开为正面平面网
-  enterUnfold();
+  // 3) 展开为正面平面网，并量测每一块面的中心坐标
+  await enterUnfold();      // 内部会调用 computeCenters()
 
   // 4) 从“当前数字格”逐格走到“n 号格”
   await moveToNumber(n);
@@ -164,39 +162,69 @@ function animateRoll(steps, final){
   });
 }
 
-function enterUnfold(){
+async function enterUnfold(){
   if (unfolded) return;
   vp.classList.add('flat');           // 平面视角（无透视）
   dice.classList.add('unfolding');    // 底图更亮
   cube.classList.add('unfold');       // 纸盒网摊开
+
+  // 等一帧，让布局/transform 生效，再量测中心
+  await nextFrame();
+  computeCenters();
+
   // 初次展开：把 marker 放到当前数字格中心
-  placeMarkerByIndex(posIndex);
+  placeMarkerByNumber(TILES[posIndex].num);
   marker.classList.add('show');
   unfolded = true;
 }
 
-// —— 从当前 posIndex 逐格走到“n 号格”（顺时针，遇 6 回到 1）——
-const STEP_MS = 380; // 每步的节奏（与 CSS 的 .35s 过渡接近）
+function computeCenters(){
+  const rDice = dice.getBoundingClientRect();
+  const cx = rDice.left + rDice.width/2;
+  const cy = rDice.top  + rDice.height/2;
+  centers = {};
+  for (const t of TILES){
+    const el = cube.querySelector(t.sel);
+    const r = el.getBoundingClientRect();
+    const fx = r.left + r.width/2;
+    const fy = r.top  + r.height/2;
+    centers[t.num] = { x: fx - cx, y: fy - cy };   // 相对 dice 中心的偏移
+  }
+}
+
+// —— 从当前 posIndex 逐格走到“n 号格”（顺时针）——
+const STEP_MS = 380; // 每步节奏（与 CSS 过渡配合）
 async function moveToNumber(n){
   const targetIdx = TILES.findIndex(t => t.num === n);
   if (targetIdx === -1) return;
 
-  // 需要走的步数 = 顺时针距离（循环）
-  let steps = (targetIdx - posIndex + TILES.length) % TILES.length;
-
-  // 逐格前进
+  let steps = (targetIdx - posIndex + TILES.length) % TILES.length; // 顺时针距离
   for (let k = 0; k < steps; k++){
-    posIndex = (posIndex + 1) % TILES.length;       // 顺时针下一格
-    placeMarkerByIndex(posIndex);                   // 标记移动（有过渡）
+    posIndex = (posIndex + 1) % TILES.length;
+    placeMarkerByNumber(TILES[posIndex].num);      // 精准到块中心
     await sleep(STEP_MS);
   }
-  // 若 steps=0（摇到当前格同号），保持不动即可
 }
 
-function placeMarkerByIndex(idx){
-  const p = TILES[idx];
-  marker.style.left = `calc(50% + ${p.x}px)`;
-  marker.style.top  = `calc(50% + ${p.y}px)`;
+function placeMarkerByNumber(num){
+  const p = centers[num];
+  const fallback = staticCenter(num);
+  const use = p || fallback;
+  marker.style.left = `calc(50% + ${use.x}px)`;
+  marker.style.top  = `calc(50% + ${use.y}px)`;
+}
+
+// 备用：静态计算（万一浏览器不支持量测时兜底）
+function staticCenter(num){
+  switch(num){
+    case 1: return {x:0, y:-1*SIZE};
+    case 2: return {x:0, y:0};
+    case 3: return {x:+1*SIZE, y:0};
+    case 4: return {x:-1*SIZE, y:0};
+    case 6: return {x:0, y:+1*SIZE};
+    case 5: return {x:0, y:+2*SIZE};
+    default: return {x:0, y:0};
+  }
 }
 
 // ===== 弹窗（作品） =====
@@ -212,6 +240,8 @@ modal.addEventListener('click', e => { if (e.target.dataset.close) modal.hidden 
 
 // ===== 小工具 =====
 function sleep(ms){ return new Promise(r => setTimeout(r, ms)); }
+function nextFrame(){ return new Promise(r => requestAnimationFrame(() => r())); }
 
 // 初始朝上
 setFace(1);
+

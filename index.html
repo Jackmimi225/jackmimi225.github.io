@@ -1,0 +1,37 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Dice → Unfold Map</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <div class="stage" id="stage" aria-label="Draggable dice">
+    <div class="viewport">
+      <div id="cube" class="cube show-1" role="button" aria-label="dice" aria-live="polite">
+        <div class="face face--top"><span>1</span></div>
+        <div class="face face--bottom"><span>6</span></div>
+        <div class="face face--front"><span>2</span></div>
+        <div class="face face--back"><span>5</span></div>
+        <div class="face face--right"><span>3</span></div>
+        <div class="face face--left"><span>4</span></div>
+      </div>
+      <div id="marker" class="marker" aria-hidden="true">●</div>
+    </div>
+  </div>
+  <div id="modal" class="modal" hidden>
+    <div class="modal__backdrop" data-close="1"></div>
+    <section class="modal__card" role="dialog" aria-modal="true" aria-labelledby="mTitle">
+      <button class="modal__close" data-close="1" aria-label="关闭">×</button>
+      <div class="modal__media" id="mMedia"></div>
+      <div class="modal__body">
+        <h3 id="mTitle"></h3>
+        <p id="mDesc"></p>
+        <a id="mLink" class="btn" href="#" target="_blank" rel="noopener">打开链接</a>
+      </div>
+    </section>
+  </div>
+  <script src="app.js"></script>
+</body>
+</html>

@@ -1,0 +1,62 @@
+*{box-sizing:border-box}
+:root{ --size:200px; --bg:#0b1220; --ink:#e5e7eb; }
+html,body{height:100%}
+body{margin:0;background:radial-gradient(1000px 600px at 20% -20%, #243b7a 20%, transparent 60%), #0b0f1a; color:var(--ink);}
+.stage{position:fixed;inset:0;display:grid;place-items:center}
+.stage,.cube{ touch-action:none; -webkit-user-select:none; user-select:none; cursor:grab; }
+.cube.grab{cursor:grabbing;}
+
+.viewport{position:relative;width:min(92vmin,720px);height:min(92vmin,720px);display:grid;place-items:center;perspective:1000px;}
+.cube{position:relative;width:var(--size);height:var(--size);transform-style:preserve-3d;transition:transform 1s cubic-bezier(.2,.8,.2,1), box-shadow .2s ease; z-index:2; will-change:transform;}
+.cube.grab{transform:translateY(-14px) scale(1.03) rotateX(var(--rx,0deg)) rotateY(var(--ry,0deg)); box-shadow:0 40px 80px rgba(0,0,0,.45)}
+.face{position:absolute;width:100%;height:100%;display:grid;place-items:center;font-weight:800;font-size:56px;color:#0f172a;background:#fff;border-radius:16px;border:1px solid rgba(255,255,255,.25);box-shadow:inset 0 0 0 2px rgba(0,0,0,.03)}
+.face span{pointer-events:none}
+.face--front{transform:translateZ(calc(var(--size)/2))}
+.face--back{transform:rotateY(180deg) translateZ(calc(var(--size)/2))}
+.face--right{transform:rotateY(-90deg) translateZ(calc(var(--size)/2))}
+.face--left{transform:rotateY(90deg) translateZ(calc(var(--size)/2))}
+.face--top{transform:rotateX(90deg) translateZ(calc(var(--size)/2))}
+.face--bottom{transform:rotateX(-90deg) translateZ(calc(var(--size)/2))}
+.face--top{background:linear-gradient(135deg,#e0f2fe,#ffffff)}
+.face--bottom{background:linear-gradient(135deg,#fee2e2,#ffffff)}
+.face--front{background:linear-gradient(135deg,#e9d5ff,#ffffff)}
+.face--back{background:linear-gradient(135deg,#fde68a,#ffffff)}
+.face--right{background:linear-gradient(135deg,#bbf7d0,#ffffff)}
+.face--left{background:linear-gradient(135deg,#c7d2fe,#ffffff)}
+
+.cube.show-1{transform:rotateX(0) rotateY(0)}
+.cube.show-2{transform:rotateX(-90deg) rotateY(0)}
+.cube.show-3{transform:rotateX(0) rotateY(-90deg)}
+.cube.show-4{transform:rotateX(0) rotateY(90deg)}
+.cube.show-5{transform:rotateX(90deg) rotateY(0)}
+.cube.show-6{transform:rotateX(180deg) rotateY(0)}
+
+.cube.unfold .face{transition:transform 1s cubic-bezier(.25,.9,.2,1)}
+.cube.unfold .face--front{transform:translateZ(0)}
+.cube.unfold .face--top{transform:translateZ(0) translate3d(0,calc(-1*var(--size)),0)}
+.cube.unfold .face--bottom{transform:translateZ(0) translate3d(0,var(--size),0)}
+.cube.unfold .face--left{transform:translateZ(0) translate3d(calc(-1*var(--size)),0,0)}
+.cube.unfold .face--right{transform:translateZ(0) translate3d(var(--size),0,0)}
+.cube.unfold .face--back{transform:translateZ(0) translate3d(0,calc(2*var(--size)),0)}
+
+.viewport::after{content:'';position:absolute;inset:0;transform:translateZ(-1px);
+  background:radial-gradient(1000px 600px at 80% -20%, rgba(99,102,241,.2), transparent), url('assets/world.jpg');
+  background-size:cover;background-position:center;opacity:0;transition:opacity 1s ease;border-radius:22px;filter:saturate(1.05) contrast(1.05);
+  z-index:1; pointer-events:none;
+}
+.viewport:has(.cube.unfold)::after{opacity:.9}
+
+.marker{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);font-size:24px;color:#ef4444;opacity:0;transition:opacity .3s ease,left .7s ease, top .7s ease; z-index:3}
+.marker.show{opacity:1}
+
+.modal[hidden]{display:none!important}
+.modal{position:fixed;inset:0;display:grid;place-items:center;z-index:50}
+.modal__backdrop{position:absolute;inset:0;background:rgba(0,0,0,.45);backdrop-filter:blur(2px)}
+.modal__card{position:relative;z-index:1;width:min(720px,92vw);min-height:220px;background:#0b0f1a;border:1px solid #2a3248;color:#e5e7eb;border-radius:16px;overflow:hidden;display:grid;grid-template-columns:40% 1fr;box-shadow:0 30px 60px rgba(0,0,0,.5)}
+@media (max-width:720px){.modal__card{grid-template-columns:1fr}}
+.modal__media{background:linear-gradient(135deg,#dbeafe,#fde68a);min-height:180px}
+.modal__body{padding:1rem 1.25rem}
+.modal__body h3{margin:.25rem 0}
+.modal__body p{color:#c7ccd8;margin:.25rem 0}
+.modal__close{position:absolute;right:10px;top:6px;width:36px;height:36px;border-radius:10px;border:1px solid #3b4460;background:#12182a;color:#e5e7eb;cursor:pointer}
+.btn{border:1px solid #3b4460;background:#12182a;color:#e5e7eb;border-radius:10px;padding:.5rem .9rem;display:inline-block;text-decoration:none}

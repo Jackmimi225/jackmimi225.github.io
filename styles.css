@@ -9,6 +9,15 @@ body{margin:0;background:radial-gradient(1000px 600px at 20% -20%, #243b7a 20%, 
 .stage{position:fixed;inset:0;display:grid;place-items:center}
 .viewport{position:relative;width:min(92vmin,720px);height:min(92vmin,720px);display:grid;place-items:center;perspective:1000px;}
 
+/* 让拖拽在 Safari/移动端可用，禁止默认滚动/选中 */
+.stage, .cube {
+  touch-action: none;
+  -webkit-user-select: none;
+  user-select: none;
+  cursor: grab;
+}
+.cube.grab { cursor: grabbing; }
+
 .cube{position:relative;width:var(--size);height:var(--size);transform-style:preserve-3d;transition:transform 1s cubic-bezier(.2,.8,.2,1), box-shadow .2s ease}
 .cube.grab{transform:translateY(-14px) scale(1.03) rotateX(var(--rx,0deg)) rotateY(var(--ry,0deg)); box-shadow:0 40px 80px rgba(0,0,0,.45)}
 .face{position:absolute;width:100%;height:100%;display:grid;place-items:center;font-weight:800;font-size:56px;color:#0f172a;

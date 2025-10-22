@@ -27,7 +27,7 @@ let start = {x:0,y:0}, origin = {x:0,y:0}, lastMoves = [];
 let unfolded = false;
 let centers = {};                 // number -> {x,y}（相对 dice 中心的偏移）
 let posNum = 1;                   // ✅ 当前所在数字格（默认从 1 开始）
-const ORDER = [1,2,3,4,5,6];      // ✅ 行走环：严格按数字顺序
+const ORDER = [1,2,3,4,5,6];      // ✅ 严格数字环：1→2→3→4→5→6→(回到1)
 
 // 初始把 dice 固定为绝对定位
 (function initPos(){
@@ -77,10 +77,10 @@ async function onUp(){
   // 2) 数字停留 2.5s
   await sleep(2500);
 
-  // 3) 展开并量测中心
-  await enterUnfold();
+  // 3) 展开并等待“展开动画结束”，再量测中心
+  await enterUnfoldAndWait();
 
-  // 4) 从当前 posNum 按 ORDER 逐格走到 n
+  // 4) 从当前 posNum 按 ORDER 逐格走到 n（严格等待每步动画结束）
   await moveToNumber(n);
 
   // 5) 到达后弹作品（一定是 n）
@@ -111,15 +111,36 @@ function animateRoll(steps, final){
   });
 }
 
-// 展开 + 量测
-async function enterUnfold(){
-  if (unfolded) return;
-  vp.classList.add('flat'); dice.classList.add('unfolding'); cube.classList.add('unfold');
-  await nextFrame(); await nextFrame();          // 等 transform 稳定
-  computeCenters();                              // 用“面上数字”真实建立映射
-  placeMarkerByNumber(posNum);                   // ✅ 初次展开放在当前数字（默认 1）
+// 展开 + 等待动画结束 + 量测
+async function enterUnfoldAndWait(){
+  if (!unfolded){
+    vp.classList.add('flat');
+    dice.classList.add('unfolding');
+    cube.classList.add('unfold');
+  }
+  // ✅ 等“展开网”动画真正结束（监听 .face 的 transform 过渡）
+  await waitForUnfoldTransition();
+  // 再量测中心（此时布局已稳定）
+  computeCenters();
+  // 初次展开：把红点放到当前数字格中心（默认 1）
+  placeMarkerByNumber(posNum);
   marker.classList.add('show');
   unfolded = true;
+}
+
+// 监听展开动画的 transitionend（带兜底超时）
+function waitForUnfoldTransition(){
+  return new Promise(resolve=>{
+    let done = false;
+    const timeout = setTimeout(()=>{ if(!done){ done=true; cube.removeEventListener('transitionend', onEnd); resolve(); } }, 1300);
+    function onEnd(e){
+      // 只关心每一个面的 transform 过渡
+      if(!(e.target.classList && e.target.classList.contains('face'))) return;
+      if(e.propertyName !== 'transform' && e.propertyName !== '-webkit-transform') return;
+      if(!done){ done=true; clearTimeout(timeout); cube.removeEventListener('transitionend', onEnd); resolve(); }
+    }
+    cube.addEventListener('transitionend', onEnd);
+  });
 }
 
 // 量测每块中心：读取面上文本数字 → number -> {x,y}
@@ -137,7 +158,7 @@ function computeCenters(){
   });
 }
 
-// —— 逐格走到目标数字 ——（严格按 ORDER）
+// —— 逐格走到目标数字 ——（严格按 1→2→3→4→5→6）
 const STEP_TIMEOUT = 800; // 兜底超时
 async function moveToNumber(targetNum){
   if (!(targetNum in centers)) return;
@@ -164,7 +185,7 @@ function moveMarkerTo(num){
         resolve();
       }
     };
-    marker.addEventListener('transitionend', onEnd, { once:false });
+    marker.addEventListener('transitionend', onEnd);
     placeMarkerByNumber(num); // 触发过渡
     setTimeout(()=>{ marker.removeEventListener('transitionend', onEnd); resolve(); }, STEP_TIMEOUT);
   });
@@ -198,7 +219,6 @@ function openProject(num){
   else { mLink.style.display='none'; }
   modal.hidden = false;
 }
-modal.addEventListener('click', e => { if (e.target.dataset.close) modal.hidden = true; });
 
 // 初始让骰子朝上 1
 setFace(1);

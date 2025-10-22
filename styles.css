@@ -15,7 +15,11 @@ body{
 
 /* 手势控制：触摸/选择都交给我们 */
 html, body, .stage, .viewport, .dice, .cube, .face { touch-action:none; }
-.dice, .cube, .face, .netBg{ -webkit-user-select:none; user-select:none; -webkit-user-drag:none; cursor:grab }
+.dice, .cube, .face, .netBg{
+  -webkit-user-select:none; user-select:none;
+  -webkit-user-drag:none;
+}
+.dice,.cube{ cursor:grab }
 .cube.grab{ cursor:grabbing }
 
 /* 初始居中（JS 会改为绝对像素定位） */
@@ -52,7 +56,7 @@ html, body, .stage, .viewport, .dice, .cube, .face { touch-action:none; }
   box-shadow:inset 0 0 0 2px rgba(0,0,0,.03);
   outline:1px dashed rgba(0,0,0,.08);
   outline-offset:-6px;
-  transition:border-color .2s ease, box-shadow .2s ease;
+  transition:border-color .2s ease, box-shadow .2s ease, transform 1s cubic-bezier(.25,.9,.2,1);
 }
 .face span{pointer-events:none}
 .face--front{ transform:translateZ(calc(var(--size)/2)) }
@@ -82,7 +86,6 @@ html, body, .stage, .viewport, .dice, .cube, .face { touch-action:none; }
   transform:none !important;
   transform-style:flat;
 }
-.cube.unfold .face{ transition:transform 1s cubic-bezier(.25,.9,.2,1) }
 .cube.unfold .face--front { transform:translateZ(0) }
 .cube.unfold .face--top   { transform:translateZ(0) translate3d(0,calc(-1*var(--size)),0) }
 .cube.unfold .face--bottom{ transform:translateZ(0) translate3d(0,var(--size),0) }

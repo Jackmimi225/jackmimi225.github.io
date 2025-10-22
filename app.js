@@ -6,7 +6,7 @@ const SIZE = parseInt(getComputedStyle(document.documentElement).getPropertyValu
            [1 TOP]
    [4 LEFT][2 FRONT][3 RIGHT]
            [6 BOTTOM]
-           [5 BACK]  (最下)
+           [5 BACK]
    用选择器锁定每一块，展开后实时量测其中心。
 */
 const TILES = [
@@ -114,7 +114,7 @@ async function onUp(){
   // 3) 展开为正面平面网，并量测每块面的中心
   await enterUnfold();      // 内部 nextFrame + computeCenters
 
-  // 4) 从“当前数字格”逐格走到“n 号格”
+  // 4) 从“当前数字格”逐格走到“n 号格”（精确等待每一步动画结束）
   await moveToNumber(n);
 
   // 5) 到达后显示作品
@@ -192,22 +192,45 @@ function computeCenters(){
   }
 }
 
-// —— 从当前 posIndex 逐格走到“n 号格”（顺时针，遇 6 回到 1）——
-const STEP_MS = 360; // 每步节奏（与 CSS .34s 过渡协调）
+// —— 从当前 posIndex 逐格走到“n 号格”（顺时针），每一步都等 transitionend ——
+// 与 CSS 中 .marker 的 transform 过渡时间（.34s）匹配
+const STEP_TIMEOUT = 700; // 兜底超时，避免某些浏览器不触发事件
 async function moveToNumber(n){
   const targetIdx = TILES.findIndex(t => t.num === n);
   if (targetIdx === -1) return;
 
   let steps = (targetIdx - posIndex + TILES.length) % TILES.length; // 顺时针距离
+
   for (let k = 0; k < steps; k++){
     posIndex = (posIndex + 1) % TILES.length;
-    placeMarkerByNumber(TILES[posIndex].num); // 精准落到块中心
-    await sleep(STEP_MS);
+    await moveMarkerTo(TILES[posIndex].num);   // 等这一步“踩格子”动画结束
   }
 }
 
+// 把红点移动到某个“数字格”的中心，并等待本次 transform 过渡结束
+function moveMarkerTo(num){
+  return new Promise(resolve => {
+    const onEnd = (e) => {
+      const pn = e?.propertyName || '';
+      if (pn === 'transform' || pn === '-webkit-transform' || pn === '') {
+        marker.removeEventListener('transitionend', onEnd);
+        resolve();
+      }
+    };
+    marker.addEventListener('transitionend', onEnd);
+    placeMarkerByNumber(num); // 触发 transform 过渡
+    // 兜底超时：某些浏览器偶发不派发 transitionend
+    setTimeout(() => {
+      marker.removeEventListener('transitionend', onEnd);
+      resolve();
+    }, STEP_TIMEOUT);
+  });
+}
+
 function placeMarkerByNumber(num){
-  const p = centers[num] || staticCenter(num); // 兜底：静态几何
+  // 若尚未量测，先兜底
+  if (!centers[num]) centers[num] = staticCenter(num);
+  const p = centers[num];
   marker.style.setProperty('--dx', `${p.x}px`);
   marker.style.setProperty('--dy', `${p.y}px`);
 }
@@ -242,4 +265,3 @@ function nextFrame(){ return new Promise(r => requestAnimationFrame(() => r()));
 
 // 初始朝上
 setFace(1);
-

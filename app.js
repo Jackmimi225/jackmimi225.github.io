@@ -1,4 +1,4 @@
-// ========= 作品与落点 =========
+// ===== 基本数据 =====
 const SIZE = parseInt(getComputedStyle(document.documentElement).getPropertyValue('--size')) || 200;
 
 const projects = {
@@ -10,51 +10,61 @@ const projects = {
   6: { title: '作品 6', desc: '示例：信息图/视觉。',  link: '#' },
 };
 
-// 相对 dice 容器中心（像素）。六个区域分别对应：上、前、右、左、下、背
+// 展开图上的 6 个区域（相对 dice 容器中心的像素偏移）
 const anchors = {
-  1: { x: 0,      y: -1*SIZE }, // 顶面
-  2: { x: 0,      y: 0 },       // 前面
-  3: { x: +1*SIZE, y: 0 },      // 右
-  4: { x: -1*SIZE, y: 0 },      // 左
-  5: { x: 0,      y: +1*SIZE }, // 下
-  6: { x: 0,      y: +2*SIZE }, // 背（展开在最下方）
+  1: { x: 0,       y: -1*SIZE }, // 顶
+  2: { x: 0,       y: 0 },       // 前
+  3: { x: +1*SIZE, y: 0 },       // 右
+  4: { x: -1*SIZE, y: 0 },       // 左
+  5: { x: 0,       y: +1*SIZE }, // 下
+  6: { x: 0,       y: +2*SIZE }, // 背（在最下方）
 };
 
-// ========= 元素 =========
-const dice  = document.getElementById('dice');
-const cube  = document.getElementById('cube');
-const marker= document.getElementById('marker');
-const modal = document.getElementById('modal');
-const mTitle= document.getElementById('mTitle');
-const mDesc = document.getElementById('mDesc');
-const mLink = document.getElementById('mLink');
+// ===== 选择器 =====
+const vp     = document.getElementById('vp');
+const dice   = document.getElementById('dice');
+const cube   = document.getElementById('cube');
+const marker = document.getElementById('marker');
+const modal  = document.getElementById('modal');
+const mTitle = document.getElementById('mTitle');
+const mDesc  = document.getElementById('mDesc');
+const mLink  = document.getElementById('mLink');
 
-// ========= 状态 =========
-let dragging = false;       // 正在拖动“整个骰子”
-let rolling  = false;       // 正在摇动
-let lastMoves = [];         // 记录用来估算“力度”
-let start = { x:0, y:0 };   // 指针按下时的坐标
-let origin= { x:0, y:0 };   // dice 当前位置（px）
+// ===== 状态 =====
+let dragging = false;
+let rolling  = false;
+let start = { x:0, y:0 };
+let origin= { x:0, y:0 };
+let lastMoves = [];
 
-// 初始化：把当前 left/top 作为 origin
+// 初始化：把当前位置转为 left/top 绝对定位，便于拖拽计算
 (function initPos(){
   const rect = dice.getBoundingClientRect();
   origin.x = rect.left; origin.y = rect.top;
   dice.style.left = origin.x + 'px';
   dice.style.top  = origin.y + 'px';
-  dice.style.transform = 'translate(0,0)'; // 用 left/top 定位，便于后续运算
+  dice.style.transform = 'translate(0,0)';
 })();
 
-// ========= 拖拽（左键/触摸） =========
-function pt(e){ if(e.touches&&e.touches[0]) return {x:e.touches[0].clientX,y:e.touches[0].clientY}; return {x:e.clientX,y:e.clientY}; }
+// ===== 拖拽交互（左键/触摸） =====
+const point = e => (e.touches && e.touches[0])
+  ? {x:e.touches[0].clientX, y:e.touches[0].clientY}
+  : {x:e.clientX, y:e.clientY};
 
 function onDown(e){
   if (rolling) return;
-  if (e.button !== undefined && e.button !== 0) return; // 只接受左键
+  if (e.button !== undefined && e.button !== 0) return; // 仅左键
+  // 收起展开图、恢复 3D 透视
+  vp.classList.remove('flat');
+  cube.classList.remove('unfold');
+  marker.classList.remove('show');
+  dice.classList.remove('unfolding');
+
   dragging = true;
-  const p = pt(e);
+  const p = point(e);
   start.x = p.x; start.y = p.y;
   lastMoves.length = 0;
+
   cube.classList.add('grab');
   dice.style.willChange = 'left, top';
   dice.setPointerCapture?.(e.pointerId);
@@ -62,14 +72,14 @@ function onDown(e){
 }
 function onMove(e){
   if (!dragging) return;
-  const p = pt(e);
+  const p = point(e);
   const dx = p.x - start.x;
   const dy = p.y - start.y;
   dice.style.left = (origin.x + dx) + 'px';
   dice.style.top  = (origin.y + dy) + 'px';
 
-  // 记录移动用于“力度”估算 + 轻微倾斜反馈
-  lastMoves.push({dx, dy, time: performance.now()});
+  // 用于估算“力度” + 微倾反馈
+  lastMoves.push({dx, dy, t: performance.now()});
   if (lastMoves.length > 32) lastMoves.shift();
   cube.style.setProperty('--rx', (-dy * 0.15) + 'deg');
   cube.style.setProperty('--ry', ( dx * 0.18) + 'deg');
@@ -79,19 +89,19 @@ async function onUp(){
   dragging = false;
   cube.classList.remove('grab');
   dice.style.willChange = 'auto';
-  // 固定新的原点
+
+  // 固定新原点
   const rect = dice.getBoundingClientRect();
   origin.x = rect.left; origin.y = rect.top;
 
   // 松手即摇
-  cube.classList.remove('unfold'); marker.classList.remove('show');
   const { steps, final } = getRollPlan();
   const n = await animateRoll(steps, final);
   await new Promise(res => setTimeout(res, 300));
   sequenceAfterLanding(n);
 }
 
-// 绑定三套事件（Pointer/Mouse/Touch）
+// 绑定 Pointer + Mouse + Touch 三套事件（跨浏览器稳）
 cube.addEventListener('pointerdown', onDown);
 window.addEventListener('pointermove', onMove);
 window.addEventListener('pointerup',   onUp);
@@ -102,9 +112,8 @@ cube.addEventListener('touchstart', onDown, {passive:false});
 window.addEventListener('touchmove', onMove, {passive:false});
 window.addEventListener('touchend',  onUp);
 
-// ========= 摇骰与后续 =========
+// ===== 掷骰与展开序列 =====
 function rollEnergy(){
-  // 取最近位移的模长近似作为力度
   const r = lastMoves.slice(-6);
   if (!r.length) return 0;
   const d = r[r.length-1];
@@ -134,22 +143,30 @@ function animateRoll(steps, final){
     })();
   });
 }
+
 async function sequenceAfterLanding(n){
-  cube.classList.add('unfold');           // 摊开
+  // 切为平面视角 + 进入展开状态（确保展开图正面朝向）
+  vp.classList.add('flat');
+  dice.classList.add('unfolding');   // 让底图更亮
+  cube.classList.add('unfold');
+
   marker.classList.remove('show');
-  await new Promise(r => setTimeout(r, 700));
-  const a = anchors[n] || {x:0,y:0};      // 数字前进到对应区域
+  await new Promise(r => setTimeout(r, 700)); // 等展开动画
+
+  // 数字前进到展开图上对应区域
+  const a = anchors[n] || {x:0, y:0};
   marker.style.left = `calc(50% + ${a.x}px)`;
   marker.style.top  = `calc(50% + ${a.y}px)`;
   marker.textContent = n;
   marker.classList.add('show');
+
   await new Promise(r => setTimeout(r, 750));
-  openProject(n);                          // 再显示作品
+  openProject(n);
 }
 
-// ========= 作品弹窗 =========
+// ===== 作品弹窗 =====
 function openProject(n){
-  const item = projects[n] || { title: '作品 '+n, desc: '', link: '' };
+  const item = projects[n] || { title:'作品 '+n, desc:'', link:'' };
   mTitle.textContent = item.title;
   mDesc.textContent  = item.desc;
   if (item.link){ mLink.href = item.link; mLink.style.display = 'inline-block'; }
@@ -158,5 +175,6 @@ function openProject(n){
 }
 modal.addEventListener('click', e => { if (e.target.dataset.close) modal.hidden = true; });
 
-// 初始点数
+// 初始朝上
 setFace(1);
+

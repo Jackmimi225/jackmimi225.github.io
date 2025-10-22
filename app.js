@@ -11,7 +11,7 @@ const mTitle = document.getElementById('mTitle');
 const mDesc  = document.getElementById('mDesc');
 const mLink  = document.getElementById('mLink');
 
-// 作品（可改）
+// 作品（按需修改）
 const projects = {
   1: { title: '作品 1', desc: '示例：Unity 交互文字实验。', link: '#' },
   2: { title: '作品 2', desc: '示例：p5.js 生成海报系列。', link: '#' },
@@ -21,13 +21,13 @@ const projects = {
   6: { title: '作品 6', desc: '示例：信息图/视觉。',  link: '#' },
 };
 
-// 状态
+// ===== 状态 =====
 let dragging = false, rolling = false;
 let start = {x:0,y:0}, origin = {x:0,y:0}, lastMoves = [];
 let unfolded = false;
-let centers = {};          // number -> {x,y}（相对 dice 中心的偏移）
-let posNum = 1;            // ✅ 当前所在数字格（默认从 1 开始）
-let order = [1,2,3,6,5,4]; // ✅ 走格环（顺时针），可按需调整
+let centers = {};                 // number -> {x,y}（相对 dice 中心的偏移）
+let posNum = 1;                   // ✅ 当前所在数字格（默认从 1 开始）
+const ORDER = [1,2,3,4,5,6];      // ✅ 行走环：严格按数字顺序
 
 // 初始把 dice 固定为绝对定位
 (function initPos(){
@@ -46,7 +46,7 @@ const nextFrame = () => new Promise(r => requestAnimationFrame(()=>r()));
 // 拖拽
 function onDown(e){
   if (rolling) return;
-  if (e.button !== undefined && e.button !== 0) return;
+  if (e.button !== undefined && e.button !== 0) return; // 仅左键
   vp.classList.remove('flat'); unfolded = false;
   cube.classList.remove('unfold');
   marker.classList.remove('show');
@@ -60,9 +60,11 @@ function onDown(e){
 function onMove(e){
   if (!dragging) return;
   const p = point(e); const dx = p.x - start.x; const dy = p.y - start.y;
-  dice.style.left = (origin.x + dx) + 'px'; dice.style.top = (origin.y + dy) + 'px';
+  dice.style.left = (origin.x + dx) + 'px';
+  dice.style.top  = (origin.y + dy) + 'px';
   lastMoves.push({dx,dy,t:performance.now()}); if (lastMoves.length>32) lastMoves.shift();
-  cube.style.setProperty('--rx', (-dy*0.15)+'deg'); cube.style.setProperty('--ry', (dx*0.18)+'deg');
+  cube.style.setProperty('--rx', (-dy*0.15)+'deg');
+  cube.style.setProperty('--ry', ( dx*0.18)+'deg');
 }
 async function onUp(){
   if (!dragging) return;
@@ -78,10 +80,10 @@ async function onUp(){
   // 3) 展开并量测中心
   await enterUnfold();
 
-  // 4) 从当前 posNum 逐格走到 n（精确等待每步动画结束）
+  // 4) 从当前 posNum 按 ORDER 逐格走到 n
   await moveToNumber(n);
 
-  // 5) 到达后才展示作品
+  // 5) 到达后弹作品（一定是 n）
   openProject(n);
 }
 
@@ -102,8 +104,8 @@ function getRollPlan(){ const e=rollEnergy(); const steps=Math.min(24,Math.max(1
 function setFace(n){ cube.classList.remove('show-1','show-2','show-3','show-4','show-5','show-6'); cube.classList.add('show-'+n); }
 function animateRoll(steps, final){
   return new Promise(resolve=>{
-    rolling=true; const order=[1,2,3,4,5,6]; let i=0;
-    (function loop(){ const t=i/steps; const iv=40+360*t*t; setFace(order[i%order.length]); i++;
+    rolling=true; const seq=[1,2,3,4,5,6]; let i=0;
+    (function loop(){ const t=i/steps; const iv=40+360*t*t; setFace(seq[i%seq.length]); i++;
       if(i<steps) setTimeout(loop,iv); else { setFace(final); rolling=false; resolve(final); }
     })();
   });
@@ -113,9 +115,9 @@ function animateRoll(steps, final){
 async function enterUnfold(){
   if (unfolded) return;
   vp.classList.add('flat'); dice.classList.add('unfolding'); cube.classList.add('unfold');
-  await nextFrame(); await nextFrame(); // 等 transform 稳定
-  computeCenters();                      // 用“面上数字”真实建立映射
-  placeMarkerByNumber(posNum);           // ✅ 初次展开放在当前数字（默认 1）
+  await nextFrame(); await nextFrame();          // 等 transform 稳定
+  computeCenters();                              // 用“面上数字”真实建立映射
+  placeMarkerByNumber(posNum);                   // ✅ 初次展开放在当前数字（默认 1）
   marker.classList.add('show');
   unfolded = true;
 }
@@ -126,39 +128,33 @@ function computeCenters(){
   const cx = rDice.left + rDice.width/2;
   const cy = rDice.top  + rDice.height/2;
   centers = {};
-  // 所有面
-  const faces = cube.querySelectorAll('.face');
-  faces.forEach(el=>{
+  document.querySelectorAll('.face').forEach(el=>{
     const txt = (el.textContent||'').trim();
     const num = parseInt(txt,10);
     if (!num || num<1 || num>6) return;
     const r = el.getBoundingClientRect();
     centers[num] = { x: r.left + r.width/2 - cx, y: r.top + r.height/2 - cy };
   });
-  // order 环只保留量测到的数字，保持 [1,2,3,6,5,4] 的顺序
-  order = [1,2,3,6,5,4].filter(n => n in centers);
 }
 
-// —— 逐格走到目标数字 ——
-// 与 CSS .marker 的 transform 过渡配合；用 transitionend 精确等待
-const STEP_TIMEOUT = 800;
+// —— 逐格走到目标数字 ——（严格按 ORDER）
+const STEP_TIMEOUT = 800; // 兜底超时
 async function moveToNumber(targetNum){
   if (!(targetNum in centers)) return;
 
-  // 计算从 posNum 到 targetNum 的顺时针步数
-  const curIdx = order.indexOf(posNum);
-  const tarIdx = order.indexOf(targetNum);
+  const curIdx = ORDER.indexOf(posNum);
+  const tarIdx = ORDER.indexOf(targetNum);
   if (curIdx === -1 || tarIdx === -1){ posNum = targetNum; placeMarkerByNumber(posNum); return; }
-  let steps = (tarIdx - curIdx + order.length) % order.length;
 
-  for (let k=0;k<steps;k++){
-    const nextIdx = (order.indexOf(posNum) + 1) % order.length;
-    posNum = order[nextIdx];
-    await moveMarkerTo(posNum); // 等这一“步”完成
+  let steps = (tarIdx - curIdx + ORDER.length) % ORDER.length;
+  for (let k=0; k<steps; k++){
+    const nextIdx = (ORDER.indexOf(posNum) + 1) % ORDER.length;
+    posNum = ORDER[nextIdx];                 // ✅ 更新当前所在数字
+    await moveMarkerTo(posNum);              // 等这一“步”动画结束
   }
 }
 
-// 把红点移动到某数字中心，并等待一次 transform 过渡结束
+// 把红点移动到某数字中心，并等待 transform 过渡结束
 function moveMarkerTo(num){
   return new Promise(resolve=>{
     const onEnd = (e)=>{
@@ -168,7 +164,7 @@ function moveMarkerTo(num){
         resolve();
       }
     };
-    marker.addEventListener('transitionend', onEnd);
+    marker.addEventListener('transitionend', onEnd, { once:false });
     placeMarkerByNumber(num); // 触发过渡
     setTimeout(()=>{ marker.removeEventListener('transitionend', onEnd); resolve(); }, STEP_TIMEOUT);
   });
@@ -188,8 +184,8 @@ function staticCenter(num){
     case 2: return {x:0, y:0};
     case 3: return {x:+1*SIZE, y:0};
     case 4: return {x:-1*SIZE, y:0};
-    case 6: return {x:0, y:+1*SIZE};
-    case 5: return {x:0, y:+2*SIZE};
+    case 5: return {x:0, y:+2*SIZE};   // 最下
+    case 6: return {x:0, y:+1*SIZE};   // 中下
     default: return {x:0, y:0};
   }
 }

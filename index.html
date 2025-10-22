@@ -3,13 +3,13 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>Dice · Drag → Roll → Unfold → Walk (Highlight)</title>
+  <title>Dice · Drag → Roll → Unfold → Walk</title>
   <link rel="stylesheet" href="styles.css" />
 </head>
 <body>
   <div class="stage">
     <div class="viewport" id="vp">
-      <!-- 按住骰子拖到屏幕任意位置；松手=摇骰 -->
+      <!-- 按住即可拖动；松手=掷骰 -->
       <div class="dice" id="dice">
         <div class="netBg" aria-hidden="true"></div>
 
@@ -40,7 +40,7 @@
     </section>
   </div>
 
-  <!-- 强制刷新脚本缓存：把 v=dragfix5 换成任意新字符串都行 -->
+  <!-- 加版本号强制跳过缓存 -->
   <script src="app.js?v=dragfix5"></script>
 </body>
 </html>

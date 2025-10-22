@@ -1,6 +1,19 @@
-// ===== 基本数据 =====
+// ===== 基本配置 =====
 const SIZE = parseInt(getComputedStyle(document.documentElement).getPropertyValue('--size')) || 200;
 
+// 展开图上的“棋盘路径”（像大富翁那样绕一圈）——共 10 格：沿 3×4 边框一圈走
+const cell = (i,j) => ({ x: (-SIZE + SIZE/2) + i*SIZE, y: (-SIZE + SIZE/2) + j*SIZE });
+// 顺时针：上边 3 格 → 右边 3 格 → 下边 2 格 → 左边 2 格 = 10 格
+const route = [
+  cell(0,0), cell(1,0), cell(2,0),
+  cell(2,1), cell(2,2), cell(2,3),
+  cell(1,3), cell(0,3),
+  cell(0,2), cell(0,1),
+];
+// 每个格子落地后的作品编号（可自定义）；默认循环 1..6
+const routeProjects = [1,2,3,4,5,6,1,2,3,4];
+
+// 你的作品数据
 const projects = {
   1: { title: '作品 1', desc: '示例：Unity 交互文字实验。', link: '#' },
   2: { title: '作品 2', desc: '示例：p5.js 生成海报系列。', link: '#' },
@@ -8,16 +21,6 @@ const projects = {
   4: { title: '作品 4', desc: '示例：互动网页玩具。', link: '#' },
   5: { title: '作品 5', desc: '示例：装置概念草图。', link: '#' },
   6: { title: '作品 6', desc: '示例：信息图/视觉。',  link: '#' },
-};
-
-// 展开图上的 6 个区域（相对 dice 容器中心的像素偏移）
-const anchors = {
-  1: { x: 0,       y: -1*SIZE }, // 顶
-  2: { x: 0,       y: 0 },       // 前
-  3: { x: +1*SIZE, y: 0 },       // 右
-  4: { x: -1*SIZE, y: 0 },       // 左
-  5: { x: 0,       y: +1*SIZE }, // 下
-  6: { x: 0,       y: +2*SIZE }, // 背（在最下方）
 };
 
 // ===== 选择器 =====
@@ -36,8 +39,10 @@ let rolling  = false;
 let start = { x:0, y:0 };
 let origin= { x:0, y:0 };
 let lastMoves = [];
+let posIndex = 0;           // 棋盘当前位置索引（0..route.length-1）
+let unfolded = false;       // 是否处于展开视角
 
-// 初始化：把当前位置转为 left/top 绝对定位，便于拖拽计算
+// 初始化：把当前位置转为 left/top 绝对定位
 (function initPos(){
   const rect = dice.getBoundingClientRect();
   origin.x = rect.left; origin.y = rect.top;
@@ -54,8 +59,8 @@ const point = e => (e.touches && e.touches[0])
 function onDown(e){
   if (rolling) return;
   if (e.button !== undefined && e.button !== 0) return; // 仅左键
-  // 收起展开图、恢复 3D 透视
-  vp.classList.remove('flat');
+  // 收起（下次重新展开）
+  vp.classList.remove('flat'); unfolded = false;
   cube.classList.remove('unfold');
   marker.classList.remove('show');
   dice.classList.remove('unfolding');
@@ -94,14 +99,25 @@ async function onUp(){
   const rect = dice.getBoundingClientRect();
   origin.x = rect.left; origin.y = rect.top;
 
-  // 松手即摇
+  // ===== 顺序 1：松手 → 摇骰 =====
   const { steps, final } = getRollPlan();
-  const n = await animateRoll(steps, final);
-  await new Promise(res => setTimeout(res, 300));
-  sequenceAfterLanding(n);
+  const n = await animateRoll(steps, final);     // 结束时骰子已定格到数字 n
+
+  // ===== 顺序 2：定格后给观众看清数字（短暂停顿）=====
+  await sleep(600);
+
+  // ===== 顺序 3：再展开为平面网（正面朝向）=====
+  enterUnfold();
+
+  // ===== 顺序 4：在“棋盘路径”上逐格前进 n 步 =====
+  await moveSteps(n);
+
+  // ===== 顺序 5：到达后再显示作品 =====
+  const projId = routeProjects[posIndex];
+  openProject(projId);
 }
 
-// 绑定 Pointer + Mouse + Touch 三套事件（跨浏览器稳）
+// 三套事件：Pointer / Mouse / Touch（跨浏览器稳）
 cube.addEventListener('pointerdown', onDown);
 window.addEventListener('pointermove', onMove);
 window.addEventListener('pointerup',   onUp);
@@ -112,7 +128,7 @@ cube.addEventListener('touchstart', onDown, {passive:false});
 window.addEventListener('touchmove', onMove, {passive:false});
 window.addEventListener('touchend',  onUp);
 
-// ===== 掷骰与展开序列 =====
+// ===== 掷骰与展开序列工具 =====
 function rollEnergy(){
   const r = lastMoves.slice(-6);
   if (!r.length) return 0;
@@ -143,30 +159,34 @@ function animateRoll(steps, final){
     })();
   });
 }
-
-async function sequenceAfterLanding(n){
-  // 切为平面视角 + 进入展开状态（确保展开图正面朝向）
-  vp.classList.add('flat');
-  dice.classList.add('unfolding');   // 让底图更亮
-  cube.classList.add('unfold');
-
-  marker.classList.remove('show');
-  await new Promise(r => setTimeout(r, 700)); // 等展开动画
-
-  // 数字前进到展开图上对应区域
-  const a = anchors[n] || {x:0, y:0};
-  marker.style.left = `calc(50% + ${a.x}px)`;
-  marker.style.top  = `calc(50% + ${a.y}px)`;
-  marker.textContent = n;
+function enterUnfold(){
+  if (unfolded) return;
+  vp.classList.add('flat');           // 平面视角（无透视）
+  dice.classList.add('unfolding');    // 底图更亮
+  cube.classList.add('unfold');       // 纸盒网摊开
+  // 初次展开：把 marker 放到当前格
+  placeMarker(posIndex);
   marker.classList.add('show');
-
-  await new Promise(r => setTimeout(r, 750));
-  openProject(n);
+  unfolded = true;
 }
 
-// ===== 作品弹窗 =====
-function openProject(n){
-  const item = projects[n] || { title:'作品 '+n, desc:'', link:'' };
+// 逐格前进 n 步（像大富翁）
+async function moveSteps(n){
+  for (let k = 0; k < n; k++){
+    posIndex = (posIndex + 1) % route.length;
+    placeMarker(posIndex);            // CSS 里 left/top 有 0.25s 过渡
+    await sleep(280);                 // 与过渡时间匹配，形成“咔哒咔哒”走格
+  }
+}
+function placeMarker(idx){
+  const p = route[idx];
+  marker.style.left = `calc(50% + ${p.x}px)`;
+  marker.style.top  = `calc(50% + ${p.y}px)`;
+}
+
+// ===== 弹窗（作品） =====
+function openProject(projId){
+  const item = projects[projId] || { title:'作品', desc:'', link:'' };
   mTitle.textContent = item.title;
   mDesc.textContent  = item.desc;
   if (item.link){ mLink.href = item.link; mLink.style.display = 'inline-block'; }
@@ -175,6 +195,10 @@ function openProject(n){
 }
 modal.addEventListener('click', e => { if (e.target.dataset.close) modal.hidden = true; });
 
+// 小工具
+function sleep(ms){ return new Promise(r => setTimeout(r, ms)); }
+
 // 初始朝上
 setFace(1);
+
 

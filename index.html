@@ -10,7 +10,7 @@
   <div class="stage">
     <div class="viewport" id="vp">
       <!-- 按住即可拖动；松手=掷骰 -->
-      <div class="dice" id="dice">
+      <div class="dice" id="dice" draggable="false" aria-label="dice area">
         <div class="netBg" aria-hidden="true"></div>
 
         <!-- 立方体/展开网（面上的数字就是格子编号） -->
@@ -40,7 +40,7 @@
     </section>
   </div>
 
-  <!-- 加版本号强制跳过缓存 -->
-  <script src="app.js?v=dragfix5"></script>
+  <!-- 强制跳过缓存 -->
+  <script src="app.js?v=dragOK1"></script>
 </body>
 </html>

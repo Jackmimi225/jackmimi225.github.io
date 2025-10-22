@@ -1,30 +1,21 @@
-// ===== 基本配置 =====
+// ===== 基本尺寸（与 CSS 的 --size 保持一致） =====
 const SIZE = parseInt(getComputedStyle(document.documentElement).getPropertyValue('--size')) || 200;
 
-/* ✅ 每个展开块（六个面）即是一个格子：块中心作为落点 */
-const TILES = {
-  FRONT:  { x: 0,       y: 0 },
-  RIGHT:  { x: +1*SIZE, y: 0 },
-  BOTTOM: { x: 0,       y: +1*SIZE },
-  LEFT:   { x: -1*SIZE, y: 0 },
-  TOP:    { x: 0,       y: -1*SIZE },
-  BACK:   { x: 0,       y: +2*SIZE },
-};
-
-/* ✅ 路线顺序（可自定义顺序） */
-const route = [
-  TILES.FRONT,
-  TILES.RIGHT,
-  TILES.BOTTOM,
-  TILES.LEFT,
-  TILES.TOP,
-  TILES.BACK,
+// ===== 六个展开块（即六个数字格）的中心坐标：顺时针定义 1→2→3→4→5→6 =====
+// 布局：
+//           [1 TOP]
+//   [4 LEFT][2 FRONT][3 RIGHT]
+//           [5 BOTTOM]
+//           [6 BACK]
+const TILES = [
+  { num: 1, x: 0,        y: -1*SIZE }, // 1 顶
+  { num: 2, x: 0,        y: 0        }, // 2 前
+  { num: 3, x: +1*SIZE,  y: 0        }, // 3 右
+  { num: 4, x: -1*SIZE,  y: 0        }, // 4 左
+  { num: 5, x: 0,        y: +1*SIZE  }, // 5 下
+  { num: 6, x: 0,        y: +2*SIZE  }, // 6 背（最下）
 ];
-
-/* ✅ 每格映射到哪个作品（可按你的作品顺序改） */
-const routeProjects = [1, 2, 3, 4, 5, 6];
-
-/* 你的作品数据 */
+// 数字 -> 作品（按需改）
 const projects = {
   1: { title: '作品 1', desc: '示例：Unity 交互文字实验。', link: '#' },
   2: { title: '作品 2', desc: '示例：p5.js 生成海报系列。', link: '#' },
@@ -50,10 +41,12 @@ let rolling  = false;
 let start = { x:0, y:0 };
 let origin= { x:0, y:0 };
 let lastMoves = [];
-let posIndex = 0;           // 棋盘当前位置（指 route 数组下标）
-let unfolded = false;       // 是否处于展开视角
+let unfolded = false;
 
-// 初始：把当前位置转为 left/top 绝对定位
+// ✅ 当前所在“数字格”的索引（对应 TILES 的下标）。默认从 1 号格开始：
+let posIndex = 0; // 0=>数字1，1=>数字2，...，5=>数字6
+
+// 初始化：把当前位置转成 left/top 绝对定位
 (function initPos(){
   const rect = dice.getBoundingClientRect();
   origin.x = rect.left; origin.y = rect.top;
@@ -71,7 +64,7 @@ function onDown(e){
   if (rolling) return;
   if (e.button !== undefined && e.button !== 0) return; // 仅左键
 
-  // 收起（准备下一轮）
+  // 收起准备新一轮
   vp.classList.remove('flat'); unfolded = false;
   cube.classList.remove('unfold');
   marker.classList.remove('show');
@@ -95,7 +88,7 @@ function onMove(e){
   dice.style.left = (origin.x + dx) + 'px';
   dice.style.top  = (origin.y + dy) + 'px';
 
-  // 估算“力度” + 微倾反馈
+  // 估算力度 + 微倾反馈
   lastMoves.push({dx, dy, t: performance.now()});
   if (lastMoves.length > 32) lastMoves.shift();
   cube.style.setProperty('--rx', (-dy * 0.15) + 'deg');
@@ -111,22 +104,21 @@ async function onUp(){
   const rect = dice.getBoundingClientRect();
   origin.x = rect.left; origin.y = rect.top;
 
-  // 1) 松手 → 摇骰
+  // 1) 松手 → 摇骰（滚动动画结束时，骰子定格到 n）
   const { steps, final } = getRollPlan();
   const n = await animateRoll(steps, final);
 
-  // 2) 定格后停留 2.5 秒展示数字
+  // 2) 定格后给观众看清数字：停留 2.5s
   await sleep(2500);
 
   // 3) 展开为正面平面网
   enterUnfold();
 
-  // 4) 像大富翁在“格子”（6 个块中心）里逐步走 n 步
-  await moveSteps(n);
+  // 4) 从“当前数字格”逐格走到“n 号格”
+  await moveToNumber(n);
 
-  // 5) 到达后显示作品（按 route 对应）
-  const projId = routeProjects[posIndex];
-  openProject(projId);
+  // 5) 到达后显示 n 号作品
+  openProject(n);
 }
 
 // 事件绑定（Pointer / Mouse / Touch）
@@ -177,30 +169,39 @@ function enterUnfold(){
   vp.classList.add('flat');           // 平面视角（无透视）
   dice.classList.add('unfolding');    // 底图更亮
   cube.classList.add('unfold');       // 纸盒网摊开
-  // 初次展开：把 marker 放到当前格
-  placeMarker(posIndex);
+  // 初次展开：把 marker 放到当前数字格中心
+  placeMarkerByIndex(posIndex);
   marker.classList.add('show');
   unfolded = true;
 }
 
-// 逐格前进 n 步（在“块中心”之间跳步）
-const STEP_MS = 380; // 每步时间，和 CSS 过渡配合
-async function moveSteps(n){
-  for (let k = 0; k < n; k++){
-    posIndex = (posIndex + 1) % route.length;
-    placeMarker(posIndex);            // CSS 有 left/top 过渡，形成“咔哒”感
+// —— 从当前 posIndex 逐格走到“n 号格”（顺时针，遇 6 回到 1）——
+const STEP_MS = 380; // 每步的节奏（与 CSS 的 .35s 过渡接近）
+async function moveToNumber(n){
+  const targetIdx = TILES.findIndex(t => t.num === n);
+  if (targetIdx === -1) return;
+
+  // 需要走的步数 = 顺时针距离（循环）
+  let steps = (targetIdx - posIndex + TILES.length) % TILES.length;
+
+  // 逐格前进
+  for (let k = 0; k < steps; k++){
+    posIndex = (posIndex + 1) % TILES.length;       // 顺时针下一格
+    placeMarkerByIndex(posIndex);                   // 标记移动（有过渡）
     await sleep(STEP_MS);
   }
+  // 若 steps=0（摇到当前格同号），保持不动即可
 }
-function placeMarker(idx){
-  const p = route[idx];
+
+function placeMarkerByIndex(idx){
+  const p = TILES[idx];
   marker.style.left = `calc(50% + ${p.x}px)`;
   marker.style.top  = `calc(50% + ${p.y}px)`;
 }
 
 // ===== 弹窗（作品） =====
-function openProject(projId){
-  const item = projects[projId] || { title:'作品', desc:'', link:'' };
+function openProject(num){
+  const item = projects[num] || { title:'作品 '+num, desc:'', link:'' };
   mTitle.textContent = item.title;
   mDesc.textContent  = item.desc;
   if (item.link){ mLink.href = item.link; mLink.style.display = 'inline-block'; }
@@ -209,7 +210,7 @@ function openProject(projId){
 }
 modal.addEventListener('click', e => { if (e.target.dataset.close) modal.hidden = true; });
 
-// 小工具
+// ===== 小工具 =====
 function sleep(ms){ return new Promise(r => setTimeout(r, ms)); }
 
 // 初始朝上

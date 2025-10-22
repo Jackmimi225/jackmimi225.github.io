@@ -9,12 +9,12 @@
 <body>
   <div class="stage">
     <div class="viewport" id="vp">
-      <!-- 整个可拖拽容器（按住骰子左键即可在屏幕任意拖动） -->
+      <!-- 可拖拽容器：按住骰子即可拖动到屏幕任意位置 -->
       <div class="dice" id="dice">
-        <!-- 展开图底图：始终可见，展开时更亮；跟随 dice 位置 -->
+        <!-- 展开网底图：始终可见，展开时更亮 -->
         <div class="netBg" aria-hidden="true"></div>
 
-        <!-- 3D 骰子（按住它来拖拽；松手即摇） -->
+        <!-- 3D 骰子（松手即摇） -->
         <div id="cube" class="cube show-1" role="button" aria-label="dice">
           <div class="face face--top"><span>1</span></div>
           <div class="face face--bottom"><span>6</span></div>
@@ -24,13 +24,13 @@
           <div class="face face--left"><span>4</span></div>
         </div>
 
-        <!-- 展开后“棋子”标记（真正的圆点） -->
+        <!-- 棋子标记：真正的圆点 -->
         <div id="marker" class="marker" aria-hidden="true"></div>
       </div>
     </div>
   </div>
 
-  <!-- 作品弹窗（到达终点后再显示） -->
+  <!-- 作品弹窗 -->
   <div id="modal" class="modal" hidden>
     <div class="modal__backdrop" data-close="1"></div>
     <section class="modal__card" role="dialog" aria-modal="true" aria-labelledby="mTitle">

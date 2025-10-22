@@ -12,7 +12,7 @@ body{
 .stage{position:fixed; inset:0}
 .viewport{position:absolute; inset:0; perspective:1100px; overflow:hidden}
 
-/* 展开时让整个视口变为“平面”——展开图永远正面朝向 */
+/* 展开为“平面视角”，让纸盒网永远正面朝向观众 */
 .viewport.flat{ perspective:none }
 
 /* 允许拖拽、禁止选中文本 */
@@ -26,7 +26,7 @@ body{
   transform:translate(0,0); will-change:transform;
 }
 
-/* 展开图底图：始终可见，展开时更亮；跟随 dice 位置 */
+/* 展开网底图：始终可见，展开时更亮；跟随 dice */
 .netBg{
   position:absolute; left:calc(-1*var(--size)); top:calc(-1*var(--size));
   width:calc(var(--size)*3); height:calc(var(--size)*4);
@@ -75,13 +75,13 @@ body{
 .cube.show-5{transform:rotateX(90deg) rotateY(0)}
 .cube.show-6{transform:rotateX(180deg) rotateY(0)}
 
-/* 关键：展开时把立方体的旋转归零（确保正面朝向），并以平面布局 */
+/* 展开：将立方体旋转归零，确保平面正对观众 */
 .cube.unfold{
   transform:none !important;
   transform-style:flat;
 }
 
-/* 展开：把六面摊成十字形（相对 dice 容器） */
+/* 展开网（相对 dice 容器） */
 .cube.unfold .face{ transition:transform 1s cubic-bezier(.25,.9,.2,1) }
 .cube.unfold .face--front { transform:translateZ(0) }
 .cube.unfold .face--top   { transform:translateZ(0) translate3d(0,calc(-1*var(--size)),0) }
@@ -90,11 +90,11 @@ body{
 .cube.unfold .face--right { transform:translateZ(0) translate3d(var(--size),0,0) }
 .cube.unfold .face--back  { transform:translateZ(0) translate3d(0,calc(2*var(--size)),0) }
 
-/* 落点标记 */
+/* 棋子标记：便于逐格“走步”效果，缩短位移动画时间 */
 .marker{
   position:absolute; left:50%; top:50%; transform:translate(-50%,-50%);
   font-size:24px; color:#ef4444; opacity:0;
-  transition:opacity .3s ease, left .7s ease, top .7s ease; z-index:2;
+  transition:opacity .2s ease, left .25s ease, top .25s ease; z-index:2;
 }
 .marker.show{ opacity:1 }
 

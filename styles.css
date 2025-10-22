@@ -94,7 +94,7 @@ body{
 .marker{
   position:absolute; left:50%; top:50%; transform:translate(-50%,-50%);
   font-size:24px; color:#ef4444; opacity:0;
-  transition:opacity .2s ease, left .25s ease, top .25s ease; z-index:2;
+  transition: opacity .2s ease, left .35s ease, top .35s ease;
 }
 .marker.show{ opacity:1 }
 

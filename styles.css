@@ -32,7 +32,7 @@ html, body, .stage, .viewport, .dice, .poly, .polyArt { touch-action:none; }
   transform:translate(0,0);
 }
 
-/* ============ 折叠态：用面片画一个“多面体”的观感（模仿图1） ============ */
+/* ============ 折叠态：面片画出的“多面体” ============ */
 .poly{ position:absolute; inset:0; transform-style:preserve-3d; transition:transform 1s cubic-bezier(.2,.8,.2,1); z-index:1; }
 .polyArt{ position:absolute; inset:0; filter:drop-shadow(0 18px 40px rgba(0,0,0,.45)); }
 
@@ -44,8 +44,6 @@ html, body, .stage, .viewport, .dice, .poly, .polyArt { touch-action:none; }
         linear-gradient(135deg,#a6b3d6,#7482a6 60%, #3a4666);
        border:1px solid rgba(255,255,255,.22);
 }
-
-/* 菱形（中心+四周） */
 .rhomb{ clip-path:polygon(50% 2%, 95% 50%, 50% 98%, 5% 50%); }
 .rhomb.center{ transform:translateZ(0) rotate(12deg) scale(.93); }
 .rhomb.side.top{    transform:translate(0, calc(-1*var(--size)*.22)) rotate(-8deg)  scale(.78); filter:brightness(1.05); }
@@ -53,16 +51,13 @@ html, body, .stage, .viewport, .dice, .poly, .polyArt { touch-action:none; }
 .rhomb.side.bottom{ transform:translate(0, calc(var(--size)*.22))   rotate(-168deg) scale(.80); filter:brightness(.85); }
 .rhomb.side.left{   transform:translate(calc(-1*var(--size)*.22),0) rotate(-158deg) scale(.80); filter:brightness(.92); }
 
-/* 斜切角的三角形 */
 .tri{ width:calc(var(--size)*.85); height:calc(var(--size)*.85);
       clip-path:polygon(50% 4%, 96% 96%, 4% 96%);
       filter:brightness(.78); }
 .tri.t1{ transform:translate(calc(var(--size)*.02), calc(-1*var(--size)*.28)) rotate(30deg) scale(.65); }
 .tri.t2{ transform:translate(calc(-1*var(--size)*.08), calc(var(--size)*.28))  rotate(-150deg) scale(.65); }
 
-/* 松手“摇一摇”时给一个轻微旋转抖动（JS 会控制 transform 值） */
-
-/* ============ 展开态（模仿图2） ============ */
+/* ============ 展开态（图2形态） ============ */
 .poly.unfold .polyArt{ opacity:0; pointer-events:none; transition:opacity .25s ease; }
 .poly.unfold{ transform:none !important; transform-style:flat; }
 .viewport.flat .net{ opacity:1; }
@@ -84,18 +79,15 @@ html, body, .stage, .viewport, .dice, .poly, .polyArt { touch-action:none; }
   border:2px solid rgba(255,255,255,.35);
   outline:1px dashed rgba(0,0,0,.08); outline-offset:-6px;
 }
-
-/* 将 1..6 排成接近你图2的“条+星”结构（可按需要微调） */
 .s1{ left:calc(1*var(--size)); top:calc(1*var(--size)); } /* 中心 */
 .s2{ left:calc(1*var(--size)); top:calc(0*var(--size)); } /* 上 */
 .s3{ left:calc(2*var(--size)); top:calc(1*var(--size)); } /* 右 */
 .s4{ left:calc(0*var(--size)); top:calc(1*var(--size)); } /* 左 */
 .s5{ left:calc(1*var(--size)); top:calc(2*var(--size)); } /* 下 */
-.s6{ left:calc(1*var(--size)); top:calc(3*var(--size)); } /* 下下（形成“链条”） */
-
+.s6{ left:calc(1*var(--size)); top:calc(3*var(--size)); } /* 下下（链条） */
 .sq span{ font-size:56px; }
 
-/* 展开网的三角（仅作形态，还原“星形臂”） */
+/* 三角（仅用于还原图2的“星形臂”结构） */
 .triN{
   width:var(--size); height:var(--size);
   background:
@@ -106,8 +98,6 @@ html, body, .stage, .viewport, .dice, .poly, .polyArt { touch-action:none; }
   clip-path:polygon(50% 6%, 96% 94%, 4% 94%);
   transform-origin:50% 50%;
 }
-
-/* 在中心方格周围摆八个三角，形成“星形”感觉（可继续微调角度/位置） */
 .tA{ left:calc(2*var(--size)); top:calc(0.6*var(--size)); transform:rotate(35deg)  scale(.85); }
 .tB{ left:calc(2.4*var(--size)); top:calc(1.4*var(--size)); transform:rotate(80deg)  scale(.85); }
 .tC{ left:calc(1.8*var(--size)); top:calc(2.2*var(--size)); transform:rotate(120deg) scale(.85); }

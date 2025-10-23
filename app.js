@@ -19,7 +19,10 @@ function initThree(){
   key.position.set(2, 3, 4);
   scene.add(key);
 
-  loadGLB('assets/pingpong.glb').catch(()=>makeFallbackDodeca());
+ loadGLB('assets/pingpong.glb?v=2')
+  .then(()=>console.log('GLB loaded'))
+  .catch(()=> makeFallbackDodeca());
+
 
   const tick = ()=>{
     if(diceMesh){

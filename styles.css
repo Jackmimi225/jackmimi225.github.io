@@ -5,8 +5,6 @@ body{margin:0;background:radial-gradient(1000px 600px at 18% -18%,#22356c 20%,tr
 #stage.dragging{cursor:grabbing}
 #hud{position:fixed;left:50%;top:4vh;transform:translateX(-50%);font:900 56px/1 ui-sans-serif,system-ui,Segoe UI,Helvetica,Arial;color:#fff;text-shadow:0 10px 36px rgba(0,0,0,.5);opacity:0;transition:opacity .2s}
 #hud.show{opacity:1}
-
-/* modal */
 #modal[hidden]{display:none!important}
 #modal{position:fixed;inset:0;display:grid;place-items:center;z-index:10}
 .backdrop{position:absolute;inset:0;background:rgba(0,0,0,.45);backdrop-filter:blur(2px)}
@@ -16,4 +14,3 @@ body{margin:0;background:radial-gradient(1000px 600px at 18% -18%,#22356c 20%,tr
 .body{padding:1rem 1.25rem}
 .close{position:absolute;right:10px;top:8px;width:36px;height:36px;border-radius:10px;border:1px solid #3b4460;background:#12182a;color:#e5e7eb;cursor:pointer}
 .btn{border:1px solid #3b4460;background:#12182a;color:#e5e7eb;border-radius:10px;padding:.5rem .9rem;display:inline-block;text-decoration:none}
-

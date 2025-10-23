@@ -1,15 +1,29 @@
-// ===== 尺寸同步 =====
-const SIZE = parseInt(getComputedStyle(document.documentElement).getPropertyValue('--size')) || 240;
+// ===== 几何参数（严格的 cuboctahedron） =====
+// 设想边长 = A 像素，则：方形面所在平面距中心 s = A/√2；
+// 三角面所在平面距中心 t = 2s/√3 = (A√2)/√3。
+const ROOT2 = Math.SQRT2;
+const ROOT3 = Math.sqrt(3);
+const toDeg = r => r * 180 / Math.PI;
+
+// ===== UI 尺寸同步 =====
+const SIZE = parseInt(getComputedStyle(document.documentElement).getPropertyValue('--size')) || 260;
+const A     = Math.round(SIZE * 0.62);      // 多面体边长（可调）——略小于容器
+const sDist = A / ROOT2;
+const tDist = (A * ROOT2) / ROOT3;
 
 // DOM
 const vp     = document.getElementById('vp');
 const dice   = document.getElementById('dice');
 const cube   = document.getElementById('cube');   // 折叠/展开容器
+const solid  = document.getElementById('solid3d');
 const badge  = document.getElementById('badge');
 const modal  = document.getElementById('modal');
 const mTitle = document.getElementById('mTitle');
 const mDesc  = document.getElementById('mDesc');
 const mLink  = document.getElementById('mLink');
+
+// 将边长写入 CSS 变量，供 .sq2d/.tri2d 使用
+cube.style.setProperty('--a', A + 'px');
 
 // 作品（按需替换）
 const projects = {
@@ -21,7 +35,57 @@ const projects = {
   6: { title: '作品 6', desc: '示例：信息图/视觉。',  link: '#' },
 };
 
-// ===== 状态 =====
+// ====== 生成真正的 cuboctahedron 面 ======
+// 6 个正方形面：法向沿 +X/-X/+Y/-Y/+Z/-Z
+const squares = [
+  {axis:'x',sign:+1}, {axis:'x',sign:-1},
+  {axis:'y',sign:+1}, {axis:'y',sign:-1},
+  {axis:'z',sign:+1}, {axis:'z',sign:-1},
+];
+// 8 个三角形面：法向沿 (±1,±1,±1)
+const triNorms = [];
+[+1,-1].forEach(ix=>{
+  [+1,-1].forEach(iy=>{
+    [+1,-1].forEach(iz=>{
+      triNorms.push({nx:ix, ny:iy, nz:iz});
+    });
+  });
+});
+
+// 方形面：在对应轴方向旋转到位→沿该轴正向 translateZ(sDist)
+function addSquareFace(axis, sign){
+  const wrap = document.createElement('div'); wrap.className='face3d';
+  let rot = '';
+  if(axis==='x') rot = `rotateY(${sign>0?90:-90}deg) translateZ(${sDist}px)`;
+  if(axis==='y') rot = `rotateX(${sign>0?-90:90}deg) translateZ(${sDist}px)`;
+  if(axis==='z') rot = `rotateY(${sign>0?0:180}deg) translateZ(${sDist}px)`;
+  wrap.style.transform = rot;
+
+  const inner = document.createElement('div'); inner.className='sq2d';
+  // 为了更接近真实的“菱形朝向”，在平面内轻微旋转
+  inner.style.transform = 'translate(-50%,-50%) rotate(45deg)';
+  wrap.appendChild(inner);
+  solid.appendChild(wrap);
+}
+
+// 三角面：把 Z 轴法向(0,0,1)旋到 (nx,ny,nz) 后，再 translateZ(tDist)
+function addTriFace(nx,ny,nz){
+  const wrap = document.createElement('div'); wrap.className='face3d';
+  // yaw = atan2(nx, nz), pitch = -atan2(ny, sqrt(nx^2+nz^2))
+  const yaw   = Math.atan2(nx, nz);
+  const pitch = -Math.atan2(ny, Math.hypot(nx, nz));
+  wrap.style.transform = `rotateY(${toDeg(yaw)}deg) rotateX(${toDeg(pitch)}deg) translateZ(${tDist}px)`;
+
+  const inner = document.createElement('div'); inner.className='tri2d';
+  wrap.appendChild(inner);
+  solid.appendChild(wrap);
+}
+
+// 生成所有面
+squares.forEach(f => addSquareFace(f.axis, f.sign));
+triNorms.forEach(v => addTriFace(v.nx, v.ny, v.nz));
+
+// ===== 拖拽 & 动画（与你需求一致） =====
 let isDragging=false, rolling=false;
 let downX=0, downY=0, baseX=0, baseY=0;
 let origin={x:0,y:0};
@@ -31,7 +95,6 @@ let posNum = 1;
 const ORDER = [1,2,3,4,5,6];
 let faceByNum = {};
 
-// 初始像素定位
 (function initPos(){
   const r = dice.getBoundingClientRect();
   origin.x = r.left; origin.y = r.top;
@@ -42,7 +105,6 @@ let faceByNum = {};
 
 const sleep = (ms)=>new Promise(r=>setTimeout(r,ms));
 
-// 拖拽
 function dragStartCommon(px, py){
   vp.classList.remove('flat'); unfolded=false;
   cube.classList.remove('unfold');
@@ -67,7 +129,7 @@ function dragMoveCommon(px, py){
   lastMoves.push({dx,dy,t:performance.now()});
   if(lastMoves.length>32) lastMoves.shift();
 
-  // 拖拽时给折叠态一个微旋（视觉）
+  // 拖拽时折叠体微旋
   const rx = -dy * 0.03;
   const ry =  dx * 0.04;
   const rz =  dx * 0.01;
@@ -91,9 +153,9 @@ dice.addEventListener('mousedown', (e)=>{
   document.addEventListener('mouseup', onDocMouseUp, { once:true });
 });
 function onDocMouseMove(e){ dragMoveCommon(e.clientX, e.clientY); }
-async function onDocMouseUp(e){
+async function onDocMouseUp(){
   document.removeEventListener('mousemove', onDocMouseMove);
-  cube.style.transform=''; // 复位
+  cube.style.transform='';
   await dragEndCommon();
 }
 
@@ -113,7 +175,7 @@ function onDocTouchMove(e){
   e.preventDefault();
   dragMoveCommon(t.clientX, t.clientY);
 }
-async function onDocTouchEnd(e){
+async function onDocTouchEnd(){
   document.removeEventListener('touchmove', onDocTouchMove);
   cube.style.transform='';
   await dragEndCommon();
@@ -128,23 +190,20 @@ async function startRollSequence() {
   const { steps, final } = getRollPlan();
   const n = await animateRoll(steps, final);
 
-  // 2) 显示数字 2.5s（折叠态）
-  showBadge(n);
-  await sleep(2500);
-  hideBadge();
+  // 2) 显示数字 2.5s
+  showBadge(n); await sleep(2500); hideBadge();
 
   // 3) 展开
   await enterUnfoldAndWait();
 
-  // 4) 按顺序走到 n
+  // 4) 走到 n
   await highlightWalkTo(n);
 
-  // 5) 停留 2s 后弹出作品
+  // 5) 停 2s 弹窗
   await sleep(2000);
   openProject(n);
 }
 
-// 摇动参数
 function rollEnergy(){
   const r=lastMoves.slice(-6);
   if(!r.length) return 0;
@@ -153,7 +212,7 @@ function rollEnergy(){
 }
 function getRollPlan(){
   const e=rollEnergy();
-  const steps=Math.min(24,Math.max(10,Math.round(e/12)+10)); // 10~24 步
+  const steps=Math.min(24,Math.max(10,Math.round(e/12)+10));
   const final=1+Math.floor(Math.random()*6);
   return {steps,final};
 }
@@ -164,7 +223,7 @@ function animateRoll(steps,final){
     (function loop(){
       const t=i/steps;
       const iv=40+360*t*t;     // ease-out
-      // 折叠态摆动：三轴少量摆幅
+      // 折叠体摇动
       const rx = Math.sin(i*.55)*10;
       const ry = Math.cos(i*.45)*14 + i*1.1;
       const rz = Math.sin(i*.35)*6;
@@ -176,23 +235,20 @@ function animateRoll(steps,final){
   });
 }
 
-// 徽章显示/隐藏
 function showBadge(n){ badge.textContent = n; badge.hidden = false; }
 function hideBadge(){ badge.hidden = true; }
 
-// 展开
+// 展开 & 走步
 async function enterUnfoldAndWait(){
   if(!unfolded){
     vp.classList.add('flat');
     dice.classList.add('unfolding');
     cube.classList.add('unfold');
   }
-  await waitForUnfoldTransition();
-  buildFaceMap();
-  setCurrent(posNum);
+  await new Promise(r=>setTimeout(r,320));
+  buildFaceMap(); setCurrent(posNum);
   unfolded=true;
 }
-function waitForUnfoldTransition(){ return new Promise(r=>setTimeout(r,320)); }
 function buildFaceMap(){
   faceByNum = {};
   document.querySelectorAll('.cell.sqC').forEach(el=>{
@@ -200,14 +256,11 @@ function buildFaceMap(){
     if(n>=1 && n<=6) faceByNum[n]=el;
   });
 }
-
-// 走格子（按 1→2→3→4→5→6 环）
 const STEP_MS = 380;
 async function highlightWalkTo(targetNum){
   if(!faceByNum[targetNum]) return;
   const curIdx = ORDER.indexOf(posNum);
   const tarIdx = ORDER.indexOf(targetNum);
-
   if(curIdx===-1 || tarIdx===-1){
     clearHighlights(); setCurrent(targetNum); posNum=targetNum; return;
   }

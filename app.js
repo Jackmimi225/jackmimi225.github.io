@@ -1,4 +1,6 @@
-// ====== three.js 首屏立体骰子（加载你的 pingpong.glb；失败则用正十二面体兜底） ======
+/* ================================
+   three.js：首屏立体骰子（加载你的 GLB；失败则兜底为正十二面体）
+   ================================ */
 let renderer, scene, cam, diceMesh, raf;
 
 function initThree(){
@@ -14,16 +16,16 @@ function initThree(){
   cam = new THREE.PerspectiveCamera(55, w/h, 0.1, 100);
   cam.position.set(0, 0, 5);
 
+  // 灯光
   scene.add(new THREE.AmbientLight(0xffffff, 0.55));
   const key = new THREE.DirectionalLight(0xffffff, 0.85);
   key.position.set(2, 3, 4);
   scene.add(key);
 
- loadGLB('assets/pingpong.glb?v=2')
-  .then(()=>console.log('GLB loaded'))
-  .catch(()=> makeFallbackDodeca());
+  // 尝试加载你的 GLB（先无 DRACO → 再带 DRACO），都失败则兜底
+  tryLoadModel('assets/pingpong.glb?v=2');
 
-
+  // 轻微转动
   const tick = ()=>{
     if(diceMesh){
       diceMesh.rotation.x += 0.003;
@@ -34,6 +36,7 @@ function initThree(){
   };
   tick();
 
+  // 自适应
   window.addEventListener('resize', ()=>{
     const w = mount.clientWidth, h = mount.clientHeight;
     cam.aspect = w/h; cam.updateProjectionMatrix();
@@ -41,29 +44,45 @@ function initThree(){
   });
 }
 
-async function loadGLB(url){
-  const loader = new THREE.GLTFLoader();
-  const draco  = new THREE.DRACOLoader();
-  draco.setDecoderPath('https://www.gstatic.com/draco/v1/decoders/');
-  loader.setDRACOLoader(draco);
-
+/* ---------- GLB 加载：先无 DRACO，再用 unpkg 的 DRACO 解码器 ---------- */
+function loadGLB_NoDraco(url){
   return new Promise((resolve, reject)=>{
+    const loader = new THREE.GLTFLoader();
     loader.load(url, (gltf)=>{
-      const obj = gltf.scene;
-      // 居中 + 缩放
-      const box = new THREE.Box3().setFromObject(obj);
-      const size = box.getSize(new THREE.Vector3()).length();
-      const center = box.getCenter(new THREE.Vector3());
-      obj.position.sub(center);
-      obj.scale.multiplyScalar(2.2 / size);
-      obj.traverse(n=>{ if(n.isMesh){ n.castShadow = n.receiveShadow = true; }});
-      scene.add(obj);
-      diceMesh = obj;
-      resolve();
-    }, undefined, (err)=>{ console.error('GLB 加载失败：', err); reject(err); });
+      mountGLB(gltf.scene); resolve(true);
+    }, undefined, (err)=>{ console.error('GLB(无DRACO) 失败:', err); reject(err); });
   });
 }
+function loadGLB_WithDraco(url){
+  return new Promise((resolve, reject)=>{
+    const loader = new THREE.GLTFLoader();
+    const draco  = new THREE.DRACOLoader();
+    // 不走 gstatic，改用 unpkg，国内可用性更高
+    draco.setDecoderPath('https://unpkg.com/three@0.158.0/examples/js/libs/draco/');
+    loader.setDRACOLoader(draco);
 
+    loader.load(url, (gltf)=>{
+      mountGLB(gltf.scene); resolve(true);
+    }, undefined, (err)=>{ console.error('GLB(带DRACO) 失败:', err); reject(err); });
+  });
+}
+async function tryLoadModel(url){
+  let ok = false;
+  try { ok = await loadGLB_NoDraco(url); } catch(e){}
+  if(!ok){ try { ok = await loadGLB_WithDraco(url); } catch(e){} }
+  if(!ok){ console.warn('两种方式都失败，使用兜底十二面体'); makeFallbackDodeca(); }
+}
+function mountGLB(obj){
+  const box = new THREE.Box3().setFromObject(obj);
+  const size = box.getSize(new THREE.Vector3()).length();
+  const center = box.getCenter(new THREE.Vector3());
+  obj.position.sub(center);                 // 居中
+  obj.scale.multiplyScalar(2.2 / size);     // 缩放到合适尺寸
+  obj.traverse(n=>{ if(n.isMesh){ n.castShadow = n.receiveShadow = true; }});
+  scene.add(obj);
+  diceMesh = obj;
+  console.log('GLB loaded ✓');
+}
 function makeFallbackDodeca(){
   const geo = new THREE.DodecahedronGeometry(1,0);
   const mat = new THREE.MeshStandardMaterial({
@@ -75,17 +94,18 @@ function makeFallbackDodeca(){
 
 document.addEventListener('DOMContentLoaded', initThree);
 
-// ====== 交互：拖拽 → 松手摇 → 显示数值 → 展开 → 脉冲走到结果 → 弹窗 ======
+/* ================================
+   交互：拖拽 → 松手摇 → 显示点数 → 展开 → 脉冲到结果 → 弹窗
+   ================================ */
 const vp     = document.getElementById('vp');
 const dice   = document.getElementById('dice');
-const cube   = document.getElementById('cube');
 const badge  = document.getElementById('badge');
 const modal  = document.getElementById('modal');
 const mTitle = document.getElementById('mTitle');
 const mDesc  = document.getElementById('mDesc');
 const mLink  = document.getElementById('mLink');
 
-// 12 个项目占位（替换成你的作品）
+// 作品映射（占位，替换成你的）
 const projects = {
   1:{title:'作品 1',desc:'示例 A',link:'#'},  2:{title:'作品 2',desc:'示例 B',link:'#'},
   3:{title:'作品 3',desc:'示例 C',link:'#'},  4:{title:'作品 4',desc:'示例 D',link:'#'},
@@ -95,7 +115,7 @@ const projects = {
  11:{title:'作品 11',desc:'示例 K',link:'#'}, 12:{title:'作品 12',desc:'示例 L',link:'#'},
 };
 
-// 映射编号元素
+// 展开图上的 12 个格子
 const ORDER = [1,2,3,4,5,6,7,8,9,10,11,12];
 let faceByNum = {};
 document.querySelectorAll('.cell.pent').forEach(el=>{
@@ -110,7 +130,7 @@ let lastMoves=[];
 let unfolded=false;
 let posNum = 1;
 
-// 初始像素定位
+// 初始像素定位（居中后写回具体像素，便于拖拽）
 (function initPos(){
   const r = dice.getBoundingClientRect();
   origin.x = r.left; origin.y = r.top;
@@ -121,7 +141,7 @@ let posNum = 1;
 
 const sleep = (ms)=>new Promise(r=>setTimeout(r,ms));
 
-// 拖拽
+/* ---------- 拖拽 ---------- */
 function dragStart(px,py){
   vp.classList.remove('flat'); unfolded=false;
   clearHighlights();
@@ -138,7 +158,10 @@ function dragMove(px,py){
   dice.style.top  = (baseY + dy) + 'px';
   lastMoves.push({dx,dy,t:performance.now()});
   if(lastMoves.length>32) lastMoves.shift();
-  if(diceMesh){ diceMesh.rotation.x += dy*0.002; diceMesh.rotation.y -= dx*0.002; }
+  if(diceMesh){ // 纯视觉反馈
+    diceMesh.rotation.x += dy*0.002;
+    diceMesh.rotation.y -= dx*0.002;
+  }
 }
 async function dragEnd(){
   if(!isDragging) return;
@@ -146,7 +169,7 @@ async function dragEnd(){
   await startRound();
 }
 
-// 事件
+// 事件绑定
 dice.addEventListener('mousedown', e=>{
   if(rolling||e.button!==0) return; e.preventDefault();
   dragStart(e.clientX,e.clientY);
@@ -165,7 +188,7 @@ dice.addEventListener('touchstart', e=>{
   document.addEventListener('touchend',tu,{once:true});
 });
 
-// 一回合
+/* ---------- 一回合 ---------- */
 async function startRound(){
   const {steps,final} = getRollPlan();
   const n = await animateRoll(steps, final);
@@ -184,7 +207,7 @@ function rollEnergy(){
 }
 function getRollPlan(){
   const e=rollEnergy();
-  const steps=Math.min(30,Math.max(12,Math.round(e/10)+12));
+  const steps=Math.min(30,Math.max(12,Math.round(e/10)+12)); // 12~30 步
   const final=1+Math.floor(Math.random()*12);
   return {steps,final};
 }
@@ -192,7 +215,7 @@ function animateRoll(steps,final){
   return new Promise(resolve=>{
     rolling=true; let i=0;
     (function loop(){
-      const t=i/steps, iv=40+360*t*t;
+      const t=i/steps, iv=40+360*t*t; // ease-out
       if(diceMesh){
         diceMesh.rotation.x += 0.25 + 0.02*i;
         diceMesh.rotation.y += 0.35 + 0.018*i;
@@ -207,12 +230,12 @@ function hideBadge(){ badge.hidden=true; }
 
 async function enterUnfold(){
   if(!unfolded){ vp.classList.add('flat'); }
-  await sleep(320);
+  await sleep(320); // 等展开图显现动画
   setCurrent(posNum);
   unfolded=true;
 }
 
-// 走步
+/* ---------- 展开图脉冲行走 ---------- */
 const STEP_MS = 340;
 async function walkTo(targetNum){
   const curIdx = ORDER.indexOf(posNum);
@@ -231,7 +254,7 @@ function pulse(el){ if(!el) return; el.classList.remove('active'); void el.offse
 function setCurrent(n){ clearHighlights(); const el=faceByNum[n]; if(el) el.classList.add('current'); }
 function clearHighlights(){ document.querySelectorAll('.cell.active,.cell.current').forEach(el=>el.classList.remove('active','current')); }
 
-// 弹窗
+/* ---------- 弹窗 ---------- */
 function openProject(num){
   const item = projects[num] || { title:'作品 '+num, desc:'', link:'' };
   mTitle.textContent = item.title;

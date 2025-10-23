@@ -2,45 +2,29 @@
 <html lang="zh-CN">
 <head>
   <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>Dice · Drag → Roll → Unfold → Walk</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Dice · Drag → Roll → Unfold (Star Net)</title>
   <link rel="stylesheet" href="styles.css" />
+  <script defer src="https://unpkg.com/three@0.160.0/build/three.min.js"></script>
 </head>
 <body>
-  <div class="stage">
-    <div class="viewport" id="vp">
-      <!-- 按住即可拖动；松手=掷骰 -->
-      <div class="dice" id="dice" draggable="false" aria-label="dice area">
-        <div class="netBg" aria-hidden="true"></div>
+  <canvas id="stage"></canvas>
+  <div id="hud" aria-live="polite"></div>
 
-        <!-- 立方体/展开网（面上的数字就是格子编号） -->
-        <div id="cube" class="cube show-1" role="button" aria-label="dice">
-          <div class="face face--top"><span>1</span></div>
-          <div class="face face--bottom"><span>6</span></div>
-          <div class="face face--front"><span>2</span></div>
-          <div class="face face--back"><span>5</span></div>
-          <div class="face face--right"><span>3</span></div>
-          <div class="face face--left"><span>4</span></div>
-        </div>
-      </div>
-    </div>
-  </div>
-
-  <!-- 作品弹窗 -->
-  <div id="modal" class="modal" hidden>
-    <div class="modal__backdrop" data-close="1"></div>
-    <section class="modal__card" role="dialog" aria-modal="true" aria-labelledby="mTitle">
-      <button class="modal__close" data-close="1" aria-label="关闭">×</button>
-      <div class="modal__media" id="mMedia"></div>
-      <div class="modal__body">
-        <h3 id="mTitle"></h3>
-        <p id="mDesc"></p>
-        <a id="mLink" class="btn" href="#" target="_blank" rel="noopener">打开链接</a>
+  <div id="modal" hidden>
+    <div class="backdrop" data-close="1"></div>
+    <section class="card" role="dialog" aria-modal="true">
+      <button class="close" data-close="1" aria-label="关闭">×</button>
+      <div class="media"></div>
+      <div class="body">
+        <h3 id="mTitle">作品</h3>
+        <p id="mDesc">说明</p>
+        <a id="mLink" class="btn" target="_blank" rel="noopener">打开链接</a>
       </div>
     </section>
   </div>
 
-  <!-- 加版本号强制跳过缓存 -->
-  <script src="app.js?v=dragOK3"></script>
+  <script defer src="app.js?v=star-net-v2"></script>
 </body>
 </html>
+

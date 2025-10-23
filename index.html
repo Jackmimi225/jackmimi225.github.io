@@ -51,7 +51,7 @@
     </div>
   </div>
 
-  <!-- 弹窗 -->
+  <!-- 作品弹窗 -->
   <div id="modal" class="modal" hidden>
     <div class="modal__backdrop" data-close="1"></div>
     <section class="modal__card" role="dialog" aria-modal="true" aria-labelledby="mTitle">
@@ -65,50 +65,6 @@
     </section>
   </div>
 
-<script type="module">
-  import * as THREE from 'https://unpkg.com/three@0.158.0/build/three.module.js';
-
-  // 先声明
-  let renderer, scene, camera, mesh;
-
-  init();
-  animate();
-
-  function init() {
-    const w = window.innerWidth, h = window.innerHeight;
-
-    renderer = new THREE.WebGLRenderer({ antialias: true });
-    renderer.setSize(w, h);
-    document.body.appendChild(renderer.domElement);
-
-    scene = new THREE.Scene();
-    scene.background = new THREE.Color(0x0b0f1a);
-
-    camera = new THREE.PerspectiveCamera(60, w / h, 0.1, 100);
-    camera.position.set(0, 0, 5);
-
-    const geo = new THREE.BoxGeometry(1, 1, 1);
-    const mat = new THREE.MeshNormalMaterial();
-    mesh = new THREE.Mesh(geo, mat);
-    scene.add(mesh);
-
-    window.addEventListener('resize', onResize);
-  }
-
-  function onResize() {
-    const w = window.innerWidth, h = window.innerHeight;
-    camera.aspect = w / h;
-    camera.updateProjectionMatrix();
-    renderer.setSize(w, h);
-  }
-
-  function animate() {
-    requestAnimationFrame(animate);
-    mesh.rotation.x += 0.01;
-    mesh.rotation.y += 0.02;
-    renderer.render(scene, camera); // ← 这里用到 camera，但它已在上面 init() 里赋值
-  }
-</script>
-
+  <script src="app.js?v=poly_css_v2"></script>
 </body>
 </html>

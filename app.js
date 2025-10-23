@@ -222,3 +222,4 @@ function openProject(num){
   modal.hidden = false;
 }
 modal.addEventListener('click', e => { if (e.target.dataset.close) modal.hidden = true; });
+

@@ -23,7 +23,7 @@
     </section>
   </div>
 
-  <!-- 用 ESM 方式加载 app.js（内部会 import three.module.js） -->
-  <script type="module" src="app.js?v=esm-star-net"></script>
+  <!-- ESM 模式加载，app.js 内部会“多 CDN 回退”加载 three -->
+  <script type="module" src="app.js?v=star-fallback"></script>
 </body>
 </html>

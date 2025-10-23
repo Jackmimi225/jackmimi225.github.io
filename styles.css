@@ -1,10 +1,10 @@
 *{box-sizing:border-box}
 :root{
-  --size:240px;                 /* 整体缩放 */
+  --size:260px;                    /* 组件整体尺寸（可改） */
+  --edge:#2f3a4f;                  /* 面边线颜色 */
   --ink:#e5e7eb;
   --grid: repeating-linear-gradient(0deg, rgba(255,255,255,.08) 0 1px, transparent 1px 12px),
           repeating-linear-gradient(90deg, rgba(255,255,255,.08) 0 1px, transparent 1px 12px);
-  --edge:#334155;
 }
 html,body{height:100%}
 body{
@@ -16,67 +16,61 @@ body{
 .viewport{position:absolute; inset:0; perspective:1100px; overflow:hidden}
 .viewport.flat{ perspective:none }
 
-/* 交互与光标 */
-html, body, .stage, .viewport, .dice, .poly, .polyArt, .face { touch-action:none; }
-.dice, .poly, .polyArt{ -webkit-user-select:none; user-select:none; -webkit-user-drag:none; }
+/* 防选中/手势 */
+html, body, .stage, .viewport, .dice, .poly, .solid3d { touch-action:none; }
+.dice, .poly, .solid3d{ -webkit-user-select:none; user-select:none; -webkit-user-drag:none; }
 .dice,.poly{ cursor:grab }
 .poly.grab{ cursor:grabbing }
 
-/* dice 初始居中；JS 会变为绝对像素定位 */
+/* 初始居中（JS 会转成像素定位） */
 .dice{
   position:absolute; width:var(--size); height:var(--size);
   left:calc(50vw - var(--size)/2); top:calc(50vh - var(--size)/2);
   transform:translate(0,0);
 }
 
-/* 中央徽章（显示掷出的数字 2.5s） */
+/* 掷出数字徽章（显示 2.5s） */
 .badge{
   position:absolute; left:50%; top:50%; translate:-50% -50%;
   min-width:96px; padding:.35rem .75rem; border-radius:14px;
   background:#111827; color:#fefefe; font-size:48px; font-weight:900;
   border:1px solid #374151; box-shadow:0 10px 30px rgba(0,0,0,.45);
-  pointer-events:none; z-index:3;
+  pointer-events:none; z-index:5;
 }
-.badge[hidden]{ display:none !important }
+.badge[hidden]{ display:none!important }
 
-/* 折叠态：多面体（正方形+三角形面片） */
+/* ===== 折叠态：真正的 cuboctahedron ===== */
 .poly{ position:absolute; inset:0; transform-style:preserve-3d; transition:transform 1s cubic-bezier(.2,.8,.2,1); z-index:1; }
-.polyArt{ position:absolute; inset:0; filter:drop-shadow(0 16px 36px rgba(0,0,0,.5)); }
-.face{
-  position:absolute; left:0; right:0; top:0; bottom:0; margin:auto;
-  width:calc(var(--size)*.88); height:calc(var(--size)*.88); border:2px solid var(--edge);
+.solid3d{ position:absolute; inset:0; transform-style:preserve-3d; }
+
+/* 单个 3D 面的容器（放置在中心，通过 3D 旋转+Z 位移到正确位置） */
+.face3d{ position:absolute; left:50%; top:50%; transform-style:preserve-3d; }
+
+/* 面的 2D 形状（放在面容器内部居中） */
+.sq2d,.tri2d{ position:absolute; left:50%; top:50%; transform:translate(-50%,-50%); }
+.sq2d{
+  width:var(--a); height:var(--a);
   background:
     radial-gradient(120% 120% at 30% 20%, rgba(255,255,255,.28), rgba(255,255,255,0) 60%),
     var(--grid),
     linear-gradient(135deg,#e9eefb,#c8d1ef);
-  box-shadow: inset 0 0 0 1px rgba(255,255,255,.18);
-  border-radius:12px;
+  border:2px solid var(--edge);
+  border-radius:10px;
 }
-.face.sq{ clip-path:polygon(4% 4%, 96% 4%, 96% 96%, 4% 96%); filter:brightness(.97); }
-.face.tri{ clip-path:polygon(50% 4%, 96% 96%, 4% 96%); filter:brightness(.9); }
+.tri2d{
+  width:var(--a); height:calc(var(--a)*0.8660254); /* √3/2 */
+  clip-path:polygon(50% 0%, 100% 100%, 0% 100%);
+  background:
+    radial-gradient(120% 120% at 30% 20%, rgba(255,255,255,.25), rgba(255,255,255,0) 60%),
+    var(--grid),
+    linear-gradient(135deg,#dde6ff,#bcc9ff);
+  border:2px solid var(--edge);
+  border-bottom-left-radius:10px; border-bottom-right-radius:10px;
+}
 
-/* —— 下面的 transform 仅为“视觉摆位”，形成你发的多面体观感 —— */
-.f1{ transform:translate(0, calc(var(--size)*.03)) rotate(2deg) scale(.88); }
-.f2{ transform:translate(calc(var(--size)*.20), calc(var(--size)*.08)) rotate(8deg) scale(.76); }
-.f3{ transform:translate(calc(-1*var(--size)*.20), calc(var(--size)*.08)) rotate(-12deg) scale(.76); }
-.f4{ transform:translate(0, calc(-1*var(--size)*.22)) rotate(-6deg) scale(.70); }
-.f5{ transform:translate(calc(var(--size)*-.02), calc(var(--size)*.30)) rotate(-172deg) scale(.70); }
-.f6{ transform:translate(calc(var(--size)*.26), calc(var(--size)*.28)) rotate(14deg) scale(.64); }
-
-.t1{ transform:translate(calc(var(--size)*.06), calc(-1*var(--size)*.30)) rotate(18deg) scale(.62); }
-.t2{ transform:translate(calc(-1*var(--size)*.28), calc(-1*var(--size)*.02)) rotate(-18deg) scale(.62); }
-.t3{ transform:translate(calc(var(--size)*.30), calc(-1*var(--size)*.02)) rotate(24deg) scale(.62); }
-.t4{ transform:translate(calc(-1*var(--size)*.08), calc(var(--size)*.22)) rotate(-152deg) scale(.62); }
-.t5{ transform:translate(calc(var(--size)*.12), calc(var(--size)*.22)) rotate(168deg) scale(.62); }
-.t6{ transform:translate(calc(-1*var(--size)*.34), calc(var(--size)*.34)) rotate(-140deg) scale(.52); }
-.t7{ transform:translate(calc(var(--size)*.34), calc(var(--size)*.34)) rotate(140deg) scale(.52); }
-.t8{ transform:translate(calc(-1*var(--size)*.02), calc(var(--size)*.44)) rotate(180deg) scale(.48); }
-
-/* 展开：折叠体淡出；仅展开时让 .net 可见并可交互 */
-.poly.unfold .polyArt{ opacity:0; pointer-events:none; transition:opacity .25s ease; }
+/* 展开：折叠体淡出；仅展开时显示网 */
+.poly.unfold .solid3d{ opacity:0; pointer-events:none; transition:opacity .25s ease; }
 .poly.unfold{ transform:none !important; transform-style:flat; }
-
-/* 展开网默认完全隐藏，只在展开状态显示 */
 .net{
   position:absolute; left:calc(-1*var(--size)); top:calc(-1*var(--size));
   width:calc(var(--size)*3); height:calc(var(--size)*4);
@@ -84,12 +78,9 @@ html, body, .stage, .viewport, .dice, .poly, .polyArt, .face { touch-action:none
   transition:opacity .35s ease .05s, visibility 0s linear .35s;
   z-index:0;
 }
-.viewport.flat .net{
-  opacity:1; visibility:visible; pointer-events:auto;
-  transition:opacity .35s ease .05s, visibility 0s;
-}
+.viewport.flat .net{ opacity:1; visibility:visible; pointer-events:auto; transition:opacity .35s ease .05s, visibility 0s; }
 
-/* 展开网：方格（编号、脉冲目标） */
+/* 展开网：6 个编号方格（走步目标） */
 .cell{ position:absolute; display:grid; place-items:center; font-weight:900; color:#0f172a; }
 .sqC{
   width:var(--size); height:var(--size); border-radius:16px;
@@ -102,15 +93,15 @@ html, body, .stage, .viewport, .dice, .poly, .polyArt, .face { touch-action:none
 }
 .sqC span{ font-size:56px; }
 
-/* 6 个正方形的“链 + 十字”布局（与我们行走顺序配合） */
+/* 与你提供的“星形+链条”网接近的布局；可按需要微调 */
 .s1{ left:calc(1*var(--size)); top:calc(1*var(--size)); } /* 中心 */
 .s2{ left:calc(1*var(--size)); top:calc(0*var(--size)); } /* 上 */
 .s3{ left:calc(2*var(--size)); top:calc(1*var(--size)); } /* 右 */
 .s4{ left:calc(0*var(--size)); top:calc(1*var(--size)); } /* 左 */
 .s5{ left:calc(1*var(--size)); top:calc(2*var(--size)); } /* 下 */
-.s6{ left:calc(1*var(--size)); top:calc(3*var(--size)); } /* 下下（延展链） */
+.s6{ left:calc(1*var(--size)); top:calc(3*var(--size)); } /* 下下（链） */
 
-/* 展开网的三角，仅用于形态还原（可继续微调） */
+/* 展开网的三角（只为形态，不参与编号） */
 .triN{
   width:var(--size); height:var(--size);
   background:
@@ -130,7 +121,7 @@ html, body, .stage, .viewport, .dice, .poly, .polyArt, .face { touch-action:none
 .nG{ left:calc(0.2*var(--size)); top:calc(0.6*var(--size)); transform:rotate(285deg) scale(.85); }
 .nH{ left:calc(1.0*var(--size)); top:calc(0.2*var(--size)); transform:rotate(325deg) scale(.85); }
 
-/* 脉冲高亮 */
+/* 走步高亮 */
 @keyframes pulse {
   0%   { box-shadow:0 0 0 0 rgba(99,102,241,.6); border-color:rgba(99,102,241,.95); }
   100% { box-shadow:0 0 0 14px rgba(99,102,241,0); border-color:rgba(255,255,255,.35); }

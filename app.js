@@ -1,7 +1,36 @@
-// ESM 方式引入 three（选择相对稳定的 0.158 版本）
-import * as THREE from 'https://cdn.jsdelivr.net/npm/three@0.158.0/build/three.module.js';
+/* --------- 多 CDN 回退加载 three（避免某些地区单个 CDN 访问不了） --------- */
+const CDNS = [
+  'https://unpkg.com/three@0.158.0/build/three.module.js',
+  'https://cdn.jsdelivr.net/npm/three@0.158.0/build/three.module.js',
+  'https://esm.sh/three@0.158.0',
+  'https://fastly.jsdelivr.net/npm/three@0.158.0/build/three.module.js'
+];
+let THREE;
+const errors = [];
+for (const url of CDNS) {
+  try { THREE = await import(url); console.log('[three] loaded from:', url); break; }
+  catch (e) { console.warn('[three] fail:', url, e); errors.push(url+' → '+e); }
+}
+if (!THREE) fatal('three.js 加载失败，请刷新或稍后重试。');
 
-/* ========= 基础场景 ========= */
+/* --------- 全局错误可视化（方便你排查空白页） --------- */
+window.addEventListener('error', e => fatal('脚本错误：'+e.message));
+window.addEventListener('unhandledrejection', e => fatal('Promise 未处理：'+(e.reason?.message||e.reason)));
+
+function fatal(msg){
+  const box = document.createElement('div');
+  box.style.cssText = `
+    position:fixed;inset:auto 0 0 0;margin:auto;max-width:860px;
+    background:#111827;color:#f9fafb;border:1px solid #334155;border-radius:12px;
+    padding:16px 18px 14px;z-index:9999;font:14px/1.6 ui-sans-serif,system-ui;
+    box-shadow:0 20px 60px rgba(0,0,0,.5)
+  `;
+  box.innerHTML = `<b>加载失败</b><br>${msg}
+    <div style="margin-top:8px;opacity:.75">CDN尝试顺序：<code>${CDNS.join(' , ')}</code></div>`;
+  document.body.appendChild(box);
+}
+
+/* ============ 下面是场景 & 交互（与你前一版一致） ============ */
 const canvas = document.getElementById('stage');
 const hud    = document.getElementById('hud');
 const modal  = document.getElementById('modal');
@@ -21,7 +50,6 @@ scene.add(camera);
 scene.add(new THREE.AmbientLight(0xffffff, .55));
 const key = new THREE.DirectionalLight(0xffffff, .95); key.position.set(6,9,10); scene.add(key);
 
-/* ========= 几何：正方八面体（6 方 + 8 三 = 14 面） ========= */
 const group = new THREE.Group();
 scene.add(group);
 
@@ -29,7 +57,7 @@ const matSquare = new THREE.MeshStandardMaterial({ color:0xeef5fb, roughness:.5,
 const matTri    = new THREE.MeshStandardMaterial({ color:0xf7f0fb, roughness:.5, metalness:.05 });
 const edgeMat   = new THREE.LineBasicMaterial({ color:0x2a3a57, linewidth:1 });
 
-const faces = []; // {mesh,type}
+const faces = [];
 function makeFace(pts, material, type){
   const c = new THREE.Vector3(); pts.forEach(p=>c.add(p)); c.multiplyScalar(1/pts.length);
   const local = pts.map(p=>p.clone().sub(c));
@@ -66,7 +94,7 @@ for(const sx of [-1,1]) for(const sy of [-1,1]) for(const sz of [-1,1]){
 }
 group.rotation.set(-0.55, 0.95, 0.18);
 
-/* ========= 拖拽：按住即可拖，松手即“摇” ========= */
+/* 拖拽 */
 const raycaster = new THREE.Raycaster();
 const ndc = new THREE.Vector2();
 const planeZ = new THREE.Plane(new THREE.Vector3(0,0,1), 0);
@@ -99,7 +127,7 @@ function planeHit(x,y){
   return p;
 }
 
-/* ========= 掷骰流程 ========= */
+/* 掷骰流程 */
 let rolling=false, unfolded=false, currentRegion=1;
 async function startRoll(){
   if(rolling) return; rolling=true;
@@ -126,14 +154,13 @@ async function startRoll(){
   currentRegion=n; rolling=false;
 }
 
-/* ========= 星形不对称展开（更接近你的参考） ========= */
+/* 星形不对称展开 */
 const targetMap = new Map();
 function prepareStarNet(){
   targetMap.clear();
   const squares = faces.filter(f=>f.type==='square');
   const tris    = faces.filter(f=>f.type==='tri');
   const pickSquare=(sel)=>{const i=squares.findIndex(sel);return i>=0?squares.splice(i,1)[0]:null;}
-  const pickTri=(sel)=>{const i=tris.findIndex(sel);return i>=0?tris.splice(i,1)[0]:null;}
 
   const S1 = pickSquare(f=>Math.abs(f.mesh.userData.center.z-0)<0.2) || squares.shift();
   const S2 = pickSquare(f=>f.mesh.userData.center.z> 0.8) || squares.shift();
@@ -158,6 +185,16 @@ function prepareStarNet(){
   place(S5, anchors[5].clone().add(new THREE.Vector3(.2,-.1,0)),-20,5);
   place(S6, anchors[6], 12,6);
 
+  const take = arr => arr.shift();
+  const trisPool = tris.slice();
+
+  function attach(region,dx,dy,rz){
+    const f = take(trisPool) || take(squares); if(!f) return;
+    const base = anchors[region];
+    const pos = base.clone().add(new THREE.Vector3(dx,dy,0))
+      .add(new THREE.Vector3((Math.random()-.5)*.15,(Math.random()-.5)*.15,0));
+    place(f, pos, rz + (Math.random()*10-5), region);
+  }
   attach(2, +U*1.0, +U*.9,  -35);
   attach(2, -U*1.4, +U*.6,   25);
   attach(3, +U*1.2, +U*.3,  -15);
@@ -167,22 +204,19 @@ function prepareStarNet(){
   attach(6, +U*1.1, +U*.2,  +18);
   attach(6, +U*1.9, +U*.1,  -12);
 
-  tris.forEach(f=>{
-    const r=1+Math.floor(Math.random()*6), base=anchors[r];
-    const pos=base.clone().add(new THREE.Vector3((Math.random()-.5)*U*1.6,(Math.random()-.5)*U*1.2,0));
+  // 剩余零散附着
+  for(const f of trisPool){
+    const r = 1 + Math.floor(Math.random()*6);
+    const base = anchors[r];
+    const pos = base.clone().add(new THREE.Vector3(
+      (Math.random()-.5)*U*1.6,(Math.random()-.5)*U*1.2,0));
     place(f,pos,(Math.random()*60-30)|0,r);
-  });
+  }
 
   function place(face,pos,rzDeg,region){
     if(!face) return;
     const rotQ=new THREE.Quaternion().setFromEuler(new THREE.Euler(0,0,THREE.MathUtils.degToRad(rzDeg)));
     targetMap.set(face.mesh.id,{pos,rotQ,region});
-  }
-  function attach(region,dx,dy,rz){
-    const f = tris.shift() || squares.shift(); if(!f) return;
-    const base = anchors[region];
-    const jitter = new THREE.Vector3((Math.random()-.5)*.15,(Math.random()-.5)*.15,0);
-    place(f, base.clone().add(new THREE.Vector3(dx,dy,0)).add(jitter), rz + (Math.random()*10-5), region);
   }
 }
 prepareStarNet();
@@ -209,7 +243,7 @@ async function unfoldStarNet(){
   await Promise.all(tasks);
 }
 
-/* ========= 行走高亮 ========= */
+/* 行走高亮 */
 async function walkTo(n){
   const path=[]; let cur=currentRegion;
   while(cur!==n){ cur = cur%6 + 1; path.push(cur); }
@@ -225,7 +259,7 @@ function highlight(region,strong=false){
   });
 }
 
-/* ========= 作品 ========= */
+/* 作品 */
 const projects={
   1:{title:'作品 1',desc:'示例：装置 / 北极簇',link:'#'},
   2:{title:'作品 2',desc:'示例：北大西洋簇',link:'#'},
@@ -242,7 +276,7 @@ function openProject(n){
 }
 modal.addEventListener('click',e=>{ if(e.target.dataset.close) modal.hidden=true; });
 
-/* ========= 工具 ========= */
+/* 工具 */
 function tween(ms,fn){ return new Promise(r=>{ const t0=performance.now(); (function f(){const t=Math.min(1,(performance.now()-t0)/ms); fn(t); if(t<1) requestAnimationFrame(f); else r();})(); });}
 const easeOut = t=>1-Math.pow(1-t,3);
 const sleep = ms=>new Promise(r=>setTimeout(r,ms));

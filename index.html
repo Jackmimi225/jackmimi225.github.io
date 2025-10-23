@@ -2,28 +2,69 @@
 <html lang="zh-CN">
 <head>
   <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Dice · Drag → Roll → Unfold (Star Net)</title>
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Poly · Drag → Roll → Unfold → Walk</title>
   <link rel="stylesheet" href="styles.css" />
 </head>
 <body>
-  <canvas id="stage"></canvas>
-  <div id="hud" aria-live="polite"></div>
+  <div class="stage">
+    <div class="viewport" id="vp">
+      <div class="dice" id="dice" draggable="false" aria-label="poly area">
 
-  <div id="modal" hidden>
-    <div class="backdrop" data-close="1"></div>
-    <section class="card" role="dialog" aria-modal="true">
-      <button class="close" data-close="1" aria-label="关闭">×</button>
-      <div class="media"></div>
-      <div class="body">
-        <h3 id="mTitle">作品</h3>
-        <p id="mDesc">说明</p>
-        <a id="mLink" class="btn" target="_blank" rel="noopener">打开链接</a>
+        <!-- 折叠态：用面片“画”出来的多面体（模仿图1） -->
+        <div id="cube" class="poly show-1" role="button" aria-label="poly">
+          <div class="polyArt" aria-hidden="true">
+            <!-- 中心菱形体块 -->
+            <div class="face rhomb center"></div>
+            <!-- 环绕面：四个侧菱形 -->
+            <div class="face rhomb side top"></div>
+            <div class="face rhomb side right"></div>
+            <div class="face rhomb side bottom"></div>
+            <div class="face rhomb side left"></div>
+            <!-- 两个斜切面的三角 -->
+            <div class="face tri t1"></div>
+            <div class="face tri t2"></div>
+          </div>
+
+          <!-- 展开态：热点（1..6）放在六个方格上；三角仅作结构还原 -->
+          <div class="net" aria-hidden="true">
+            <!-- 六个方格（热点/编号） -->
+            <div class="cell sq s1" data-num="1"><span>1</span></div>
+            <div class="cell sq s2" data-num="2"><span>2</span></div>
+            <div class="cell sq s3" data-num="3"><span>3</span></div>
+            <div class="cell sq s4" data-num="4"><span>4</span></div>
+            <div class="cell sq s5" data-num="5"><span>5</span></div>
+            <div class="cell sq s6" data-num="6"><span>6</span></div>
+            <!-- 展开网的三角面（不编号，用于复刻图2的形） -->
+            <div class="cell triN tA"></div>
+            <div class="cell triN tB"></div>
+            <div class="cell triN tC"></div>
+            <div class="cell triN tD"></div>
+            <div class="cell triN tE"></div>
+            <div class="cell triN tF"></div>
+            <div class="cell triN tG"></div>
+            <div class="cell triN tH"></div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </div>
+
+  <!-- 弹窗 -->
+  <div id="modal" class="modal" hidden>
+    <div class="modal__backdrop" data-close="1"></div>
+    <section class="modal__card" role="dialog" aria-modal="true" aria-labelledby="mTitle">
+      <button class="modal__close" data-close="1" aria-label="关闭">×</button>
+      <div class="modal__media" id="mMedia"></div>
+      <div class="modal__body">
+        <h3 id="mTitle"></h3>
+        <p id="mDesc"></p>
+        <a id="mLink" class="btn" href="#" target="_blank" rel="noopener">打开链接</a>
       </div>
     </section>
   </div>
 
-  <!-- ESM 模式加载，app.js 内部会“多 CDN 回退”加载 three -->
-  <script type="module" src="app.js?v=star-fallback"></script>
+  <script src="app.js?v=poly_draw_v1"></script>
 </body>
 </html>

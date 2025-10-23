@@ -1,10 +1,12 @@
 *{box-sizing:border-box}
 :root{
-  --size:280px;     /* 组件整体尺寸（拖拽盒 & three 画布大小） */
+  --size:300px;        /* 组件整体大小（three 画布 + 拖拽盒） */
   --ink:#e5e7eb;
   --edge:#334155;
   --grid: repeating-linear-gradient(0deg, rgba(255,255,255,.08) 0 1px, transparent 1px 12px),
           repeating-linear-gradient(90deg, rgba(255,255,255,.08) 0 1px, transparent 1px 12px);
+  --stepX: calc(var(--size)*0.86);
+  --stepY: calc(var(--size)*0.78);
 }
 html,body{height:100%}
 body{
@@ -16,31 +18,32 @@ body{
 .viewport{position:absolute; inset:0; perspective:1100px; overflow:hidden}
 .viewport.flat{ perspective:none }
 
-/* 统一手势：拖拽靠我们，禁止默认选择/拖图 */
+/* 拖拽盒 */
 html, body, .stage, .viewport, .dice { touch-action:none; }
 .dice{ -webkit-user-select:none; user-select:none; -webkit-user-drag:none; cursor:grab }
 .dice.grab{ cursor:grabbing }
-
-/* 初始居中，JS 会写成绝对像素便于拖动 */
 .dice{
   position:absolute; width:var(--size); height:var(--size);
   left:calc(50vw - var(--size)/2); top:calc(50vh - var(--size)/2);
-  transform:translate(0,0);
 }
-/* three.js 画布容器 */
-.gl{ position:absolute; inset:0; border-radius:20px; overflow:hidden; z-index:2; }
 
-/* 掷出数字徽章（显示 2.5s） */
+/* three 画布挂载容器 */
+.gl{
+  position:absolute; inset:0; border-radius:20px; overflow:hidden;
+  z-index:2; pointer-events:none; /* 让拖拽事件落到 .dice 上 */
+}
+
+/* 掷出数字徽章 */
 .badge{
   position:absolute; left:50%; top:50%; translate:-50% -50%;
-  min-width:96px; padding:.35rem .75rem; border-radius:14px;
+  min-width:100px; padding:.35rem .75rem; border-radius:14px;
   background:#111827; color:#fefefe; font-size:48px; font-weight:900;
   border:1px solid #374151; box-shadow:0 10px 30px rgba(0,0,0,.45);
   pointer-events:none; z-index:4;
 }
 .badge[hidden]{ display:none!important }
 
-/* 展开态（进入 flat 后显示网格） */
+/* 展开态：十二面体展开图（默认隐藏，进入 flat 时显示） */
 .poly{ position:absolute; inset:0; z-index:1; }
 .net{
   position:absolute; left:calc(-1*var(--size)); top:calc(-1*var(--size));
@@ -48,12 +51,15 @@ html, body, .stage, .viewport, .dice { touch-action:none; }
   opacity:0; visibility:hidden; pointer-events:none;
   transition:opacity .35s ease .05s, visibility 0s linear .35s;
 }
-.viewport.flat .net{ opacity:1; visibility:visible; pointer-events:auto; transition:opacity .35s ease .05s, visibility 0s; }
+.viewport.flat .net{
+  opacity:1; visibility:visible; pointer-events:auto;
+  transition:opacity .35s ease .05s, visibility 0s;
+}
 
-/* 五边形格子（正十二面体展开图） */
+/* 五边形格子（编号 1..12） */
 .cell{ position:absolute; display:grid; place-items:center; font-weight:900; color:#0f172a; }
 .pent{
-  --w: calc(var(--size)*0.95);           /* 五边形外接宽 */
+  --w: calc(var(--size)*0.95);
   width:var(--w); height:calc(var(--w)*0.95);
   background:
     linear-gradient(180deg, rgba(255,255,255,.12), rgba(0,0,0,.0)),
@@ -66,24 +72,21 @@ html, body, .stage, .viewport, .dice { touch-action:none; }
 }
 .pent span{ font-size:40px }
 
-/* —— 一种常见的十二面体展开图布局（中心 + 第一环5个 + 外环5个 + 尾部1个） —— */
-/* 网格步长（让五边形边对齐得更紧一些） */
-:root{ --stepX: calc(var(--size)*0.86); --stepY: calc(var(--size)*0.78); }
-.p1  { left:calc(2*var(--stepX)); top:calc(2*var(--stepY)); } /* 中心 */
-.p2  { left:calc(2*var(--stepX)); top:calc(1*var(--stepY)); transform:rotate(0deg); }
+/* 展开图布局（中心+环形）——可根据美术再微调 */
+.p1  { left:calc(2*var(--stepX)); top:calc(2*var(--stepY)); }
+.p2  { left:calc(2*var(--stepX)); top:calc(1*var(--stepY)); }
 .p3  { left:calc(3*var(--stepX)); top:calc(1.7*var(--stepY)); transform:rotate(18deg); }
 .p4  { left:calc(3*var(--stepX)); top:calc(2.9*var(--stepY)); transform:rotate(36deg); }
 .p5  { left:calc(2*var(--stepX)); top:calc(3.6*var(--stepY)); transform:rotate(54deg); }
 .p6  { left:calc(1*var(--stepX)); top:calc(2.9*var(--stepY)); transform:rotate(-36deg); }
 .p7  { left:calc(1*var(--stepX)); top:calc(1.7*var(--stepY)); transform:rotate(-18deg); }
-/* 外环（贴在 2..6 的外边） */
 .p8  { left:calc(2*var(--stepX)); top:calc(0*var(--stepY)); }
 .p9  { left:calc(3.2*var(--stepX)); top:calc(0.9*var(--stepY)); transform:rotate(10deg); }
 .p10 { left:calc(3.6*var(--stepX)); top:calc(2.9*var(--stepY)); transform:rotate(36deg); }
 .p11 { left:calc(2*var(--stepX)); top:calc(4.7*var(--stepY)); transform:rotate(56deg); }
 .p12 { left:calc(0.4*var(--stepX)); top:calc(2.9*var(--stepY)); transform:rotate(-36deg); }
 
-/* 脉冲高亮 */
+/* 脉冲效果 */
 @keyframes pulse {
   0%   { box-shadow:0 0 0 0 rgba(99,102,241,.6); border-color:rgba(99,102,241,.95); }
   100% { box-shadow:0 0 0 14px rgba(99,102,241,0); border-color:rgba(255,255,255,.35); }

@@ -1,10 +1,11 @@
 // ===== 尺寸同步 =====
-const SIZE = parseInt(getComputedStyle(document.documentElement).getPropertyValue('--size')) || 220;
+const SIZE = parseInt(getComputedStyle(document.documentElement).getPropertyValue('--size')) || 240;
 
 // DOM
 const vp     = document.getElementById('vp');
 const dice   = document.getElementById('dice');
 const cube   = document.getElementById('cube');   // 折叠/展开容器
+const badge  = document.getElementById('badge');
 const modal  = document.getElementById('modal');
 const mTitle = document.getElementById('mTitle');
 const mDesc  = document.getElementById('mDesc');
@@ -118,21 +119,32 @@ async function onDocTouchEnd(e){
   await dragEndCommon();
 }
 
-// 一回合
+// ===== 一回合 =====
 async function startRollSequence() {
   const r = dice.getBoundingClientRect();
   origin.x = r.left; origin.y = r.top;
 
+  // 1) 摇
   const { steps, final } = getRollPlan();
   const n = await animateRoll(steps, final);
 
+  // 2) 显示数字 2.5s（折叠态）
+  showBadge(n);
   await sleep(2500);
+  hideBadge();
+
+  // 3) 展开
   await enterUnfoldAndWait();
+
+  // 4) 按顺序走到 n
   await highlightWalkTo(n);
+
+  // 5) 停留 2s 后弹出作品
+  await sleep(2000);
   openProject(n);
 }
 
-// “摇”计划
+// 摇动参数
 function rollEnergy(){
   const r=lastMoves.slice(-6);
   if(!r.length) return 0;
@@ -141,7 +153,7 @@ function rollEnergy(){
 }
 function getRollPlan(){
   const e=rollEnergy();
-  const steps=Math.min(24,Math.max(10,Math.round(e/12)+10));
+  const steps=Math.min(24,Math.max(10,Math.round(e/12)+10)); // 10~24 步
   const final=1+Math.floor(Math.random()*6);
   return {steps,final};
 }
@@ -152,7 +164,7 @@ function animateRoll(steps,final){
     (function loop(){
       const t=i/steps;
       const iv=40+360*t*t;     // ease-out
-      // 折叠态摆动：给三轴少量摆幅
+      // 折叠态摆动：三轴少量摆幅
       const rx = Math.sin(i*.55)*10;
       const ry = Math.cos(i*.45)*14 + i*1.1;
       const rz = Math.sin(i*.35)*6;
@@ -163,6 +175,10 @@ function animateRoll(steps,final){
     })();
   });
 }
+
+// 徽章显示/隐藏
+function showBadge(n){ badge.textContent = n; badge.hidden = false; }
+function hideBadge(){ badge.hidden = true; }
 
 // 展开
 async function enterUnfoldAndWait(){
@@ -176,18 +192,16 @@ async function enterUnfoldAndWait(){
   setCurrent(posNum);
   unfolded=true;
 }
-function waitForUnfoldTransition(){
-  return new Promise(r=>setTimeout(r,320));
-}
+function waitForUnfoldTransition(){ return new Promise(r=>setTimeout(r,320)); }
 function buildFaceMap(){
   faceByNum = {};
-  document.querySelectorAll('.cell.sq').forEach(el=>{
+  document.querySelectorAll('.cell.sqC').forEach(el=>{
     const n = parseInt(el.dataset.num,10);
     if(n>=1 && n<=6) faceByNum[n]=el;
   });
 }
 
-// 走格子
+// 走格子（按 1→2→3→4→5→6 环）
 const STEP_MS = 380;
 async function highlightWalkTo(targetNum){
   if(!faceByNum[targetNum]) return;
@@ -222,4 +236,3 @@ function openProject(num){
   modal.hidden = false;
 }
 modal.addEventListener('click', e => { if (e.target.dataset.close) modal.hidden = true; });
-

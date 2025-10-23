@@ -4,49 +4,56 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
   <title>Poly · Drag → Roll → Unfold → Walk</title>
-  <link rel="stylesheet" href="styles.css" />
+  <link rel="stylesheet" href="styles.css?v=poly_final_1" />
 </head>
 <body>
   <div class="stage">
     <div class="viewport" id="vp">
       <div class="dice" id="dice" draggable="false" aria-label="poly area">
+        <!-- 掷出数字的中央徽章 -->
+        <div id="badge" class="badge" aria-live="polite" hidden>1</div>
 
-        <!-- 折叠态：用面片“画”出来的多面体（模仿图1） -->
-        <div id="cube" class="poly show-1" role="button" aria-label="poly">
+        <!-- 折叠态：由三角形与正方形“画”的多面体（视觉接近你图示） -->
+        <div id="cube" class="poly show" role="button" aria-label="poly">
           <div class="polyArt" aria-hidden="true">
-            <!-- 中心菱形体块 -->
-            <div class="face rhomb center"></div>
-            <!-- 环绕面：四个侧菱形 -->
-            <div class="face rhomb side top"></div>
-            <div class="face rhomb side right"></div>
-            <div class="face rhomb side bottom"></div>
-            <div class="face rhomb side left"></div>
-            <!-- 两个斜切面的三角 -->
+            <!-- 方面（6个，用于表达“骰子”概念；视觉编号不显示，数值通过 badge 展示） -->
+            <div class="face sq f1"></div>
+            <div class="face sq f2"></div>
+            <div class="face sq f3"></div>
+            <div class="face sq f4"></div>
+            <div class="face sq f5"></div>
+            <div class="face sq f6"></div>
+            <!-- 三角面（8个） -->
             <div class="face tri t1"></div>
             <div class="face tri t2"></div>
+            <div class="face tri t3"></div>
+            <div class="face tri t4"></div>
+            <div class="face tri t5"></div>
+            <div class="face tri t6"></div>
+            <div class="face tri t7"></div>
+            <div class="face tri t8"></div>
           </div>
 
-          <!-- 展开态：热点（1..6）放在六个方格上；三角仅作结构还原 -->
+          <!-- 展开态：由 6 个正方形（编号 1..6）+ 若干三角形构成的平面网 -->
           <div class="net" aria-hidden="true">
-            <!-- 六个方格（热点/编号） -->
-            <div class="cell sq s1" data-num="1"><span>1</span></div>
-            <div class="cell sq s2" data-num="2"><span>2</span></div>
-            <div class="cell sq s3" data-num="3"><span>3</span></div>
-            <div class="cell sq s4" data-num="4"><span>4</span></div>
-            <div class="cell sq s5" data-num="5"><span>5</span></div>
-            <div class="cell sq s6" data-num="6"><span>6</span></div>
-            <!-- 展开网的三角面（不编号，用于复刻图2的形） -->
-            <div class="cell triN tA"></div>
-            <div class="cell triN tB"></div>
-            <div class="cell triN tC"></div>
-            <div class="cell triN tD"></div>
-            <div class="cell triN tE"></div>
-            <div class="cell triN tF"></div>
-            <div class="cell triN tG"></div>
-            <div class="cell triN tH"></div>
+            <!-- 六个“格子”（编号/脉冲/停留目标） -->
+            <div class="cell sqC s1" data-num="1"><span>1</span></div>
+            <div class="cell sqC s2" data-num="2"><span>2</span></div>
+            <div class="cell sqC s3" data-num="3"><span>3</span></div>
+            <div class="cell sqC s4" data-num="4"><span>4</span></div>
+            <div class="cell sqC s5" data-num="5"><span>5</span></div>
+            <div class="cell sqC s6" data-num="6"><span>6</span></div>
+            <!-- 只用于还原形态的三角（不参与编号） -->
+            <div class="cell triN nA"></div>
+            <div class="cell triN nB"></div>
+            <div class="cell triN nC"></div>
+            <div class="cell triN nD"></div>
+            <div class="cell triN nE"></div>
+            <div class="cell triN nF"></div>
+            <div class="cell triN nG"></div>
+            <div class="cell triN nH"></div>
           </div>
         </div>
-
       </div>
     </div>
   </div>
@@ -65,6 +72,6 @@
     </section>
   </div>
 
-  <script src="app.js?v=poly_css_v2"></script>
+  <script src="app.js?v=poly_final_1"></script>
 </body>
 </html>

@@ -1,76 +1,97 @@
 *{box-sizing:border-box}
 :root{
-  --size:220px;               /* 总体缩放 */
+  --size:240px;                 /* 整体缩放 */
   --ink:#e5e7eb;
-  --edge: calc(var(--size)*0.5);
   --grid: repeating-linear-gradient(0deg, rgba(255,255,255,.08) 0 1px, transparent 1px 12px),
           repeating-linear-gradient(90deg, rgba(255,255,255,.08) 0 1px, transparent 1px 12px);
+  --edge:#334155;
 }
 html,body{height:100%}
 body{
   margin:0;
-  background:radial-gradient(1000px 600px at 20% -20%, #243b7a 20%, transparent 60%), #0b0f1a;
+  background:radial-gradient(1100px 680px at 20% -20%, #243b7a 18%, transparent 60%), #0b0f1a;
   color:var(--ink);
 }
 .stage{position:fixed; inset:0}
 .viewport{position:absolute; inset:0; perspective:1100px; overflow:hidden}
 .viewport.flat{ perspective:none }
 
-/* 交互光标/防选中 */
-html, body, .stage, .viewport, .dice, .poly, .polyArt { touch-action:none; }
-.dice, .poly, .polyArt{
-  -webkit-user-select:none; user-select:none;
-  -webkit-user-drag:none;
-}
+/* 交互与光标 */
+html, body, .stage, .viewport, .dice, .poly, .polyArt, .face { touch-action:none; }
+.dice, .poly, .polyArt{ -webkit-user-select:none; user-select:none; -webkit-user-drag:none; }
 .dice,.poly{ cursor:grab }
 .poly.grab{ cursor:grabbing }
 
-/* 初始居中（JS 后转为像素定位） */
+/* dice 初始居中；JS 会变为绝对像素定位 */
 .dice{
   position:absolute; width:var(--size); height:var(--size);
   left:calc(50vw - var(--size)/2); top:calc(50vh - var(--size)/2);
   transform:translate(0,0);
 }
 
-/* ============ 折叠态：面片画出的“多面体” ============ */
-.poly{ position:absolute; inset:0; transform-style:preserve-3d; transition:transform 1s cubic-bezier(.2,.8,.2,1); z-index:1; }
-.polyArt{ position:absolute; inset:0; filter:drop-shadow(0 18px 40px rgba(0,0,0,.45)); }
-
-.face{ position:absolute; left:0; top:0; right:0; bottom:0; margin:auto;
-       width:calc(var(--size)*0.92); height:calc(var(--size)*0.92);
-       background:
-        radial-gradient(120% 120% at 30% 20%, rgba(255,255,255,.28), rgba(255,255,255,0) 60%),
-        var(--grid),
-        linear-gradient(135deg,#a6b3d6,#7482a6 60%, #3a4666);
-       border:1px solid rgba(255,255,255,.22);
+/* 中央徽章（显示掷出的数字 2.5s） */
+.badge{
+  position:absolute; left:50%; top:50%; translate:-50% -50%;
+  min-width:96px; padding:.35rem .75rem; border-radius:14px;
+  background:#111827; color:#fefefe; font-size:48px; font-weight:900;
+  border:1px solid #374151; box-shadow:0 10px 30px rgba(0,0,0,.45);
+  pointer-events:none; z-index:3;
 }
-.rhomb{ clip-path:polygon(50% 2%, 95% 50%, 50% 98%, 5% 50%); }
-.rhomb.center{ transform:translateZ(0) rotate(12deg) scale(.93); }
-.rhomb.side.top{    transform:translate(0, calc(-1*var(--size)*.22)) rotate(-8deg)  scale(.78); filter:brightness(1.05); }
-.rhomb.side.right{  transform:translate(calc(var(--size)*.22), 0)   rotate(22deg)   scale(.80); filter:brightness(.96); }
-.rhomb.side.bottom{ transform:translate(0, calc(var(--size)*.22))   rotate(-168deg) scale(.80); filter:brightness(.85); }
-.rhomb.side.left{   transform:translate(calc(-1*var(--size)*.22),0) rotate(-158deg) scale(.80); filter:brightness(.92); }
+.badge[hidden]{ display:none !important }
 
-.tri{ width:calc(var(--size)*.85); height:calc(var(--size)*.85);
-      clip-path:polygon(50% 4%, 96% 96%, 4% 96%);
-      filter:brightness(.78); }
-.tri.t1{ transform:translate(calc(var(--size)*.02), calc(-1*var(--size)*.28)) rotate(30deg) scale(.65); }
-.tri.t2{ transform:translate(calc(-1*var(--size)*.08), calc(var(--size)*.28))  rotate(-150deg) scale(.65); }
+/* 折叠态：多面体（正方形+三角形面片） */
+.poly{ position:absolute; inset:0; transform-style:preserve-3d; transition:transform 1s cubic-bezier(.2,.8,.2,1); z-index:1; }
+.polyArt{ position:absolute; inset:0; filter:drop-shadow(0 16px 36px rgba(0,0,0,.5)); }
+.face{
+  position:absolute; left:0; right:0; top:0; bottom:0; margin:auto;
+  width:calc(var(--size)*.88); height:calc(var(--size)*.88); border:2px solid var(--edge);
+  background:
+    radial-gradient(120% 120% at 30% 20%, rgba(255,255,255,.28), rgba(255,255,255,0) 60%),
+    var(--grid),
+    linear-gradient(135deg,#e9eefb,#c8d1ef);
+  box-shadow: inset 0 0 0 1px rgba(255,255,255,.18);
+  border-radius:12px;
+}
+.face.sq{ clip-path:polygon(4% 4%, 96% 4%, 96% 96%, 4% 96%); filter:brightness(.97); }
+.face.tri{ clip-path:polygon(50% 4%, 96% 96%, 4% 96%); filter:brightness(.9); }
 
-/* ============ 展开态（图2形态） ============ */
+/* —— 下面的 transform 仅为“视觉摆位”，形成你发的多面体观感 —— */
+.f1{ transform:translate(0, calc(var(--size)*.03)) rotate(2deg) scale(.88); }
+.f2{ transform:translate(calc(var(--size)*.20), calc(var(--size)*.08)) rotate(8deg) scale(.76); }
+.f3{ transform:translate(calc(-1*var(--size)*.20), calc(var(--size)*.08)) rotate(-12deg) scale(.76); }
+.f4{ transform:translate(0, calc(-1*var(--size)*.22)) rotate(-6deg) scale(.70); }
+.f5{ transform:translate(calc(var(--size)*-.02), calc(var(--size)*.30)) rotate(-172deg) scale(.70); }
+.f6{ transform:translate(calc(var(--size)*.26), calc(var(--size)*.28)) rotate(14deg) scale(.64); }
+
+.t1{ transform:translate(calc(var(--size)*.06), calc(-1*var(--size)*.30)) rotate(18deg) scale(.62); }
+.t2{ transform:translate(calc(-1*var(--size)*.28), calc(-1*var(--size)*.02)) rotate(-18deg) scale(.62); }
+.t3{ transform:translate(calc(var(--size)*.30), calc(-1*var(--size)*.02)) rotate(24deg) scale(.62); }
+.t4{ transform:translate(calc(-1*var(--size)*.08), calc(var(--size)*.22)) rotate(-152deg) scale(.62); }
+.t5{ transform:translate(calc(var(--size)*.12), calc(var(--size)*.22)) rotate(168deg) scale(.62); }
+.t6{ transform:translate(calc(-1*var(--size)*.34), calc(var(--size)*.34)) rotate(-140deg) scale(.52); }
+.t7{ transform:translate(calc(var(--size)*.34), calc(var(--size)*.34)) rotate(140deg) scale(.52); }
+.t8{ transform:translate(calc(-1*var(--size)*.02), calc(var(--size)*.44)) rotate(180deg) scale(.48); }
+
+/* 展开：折叠体淡出；仅展开时让 .net 可见并可交互 */
 .poly.unfold .polyArt{ opacity:0; pointer-events:none; transition:opacity .25s ease; }
 .poly.unfold{ transform:none !important; transform-style:flat; }
-.viewport.flat .net{ opacity:1; }
 
+/* 展开网默认完全隐藏，只在展开状态显示 */
 .net{
   position:absolute; left:calc(-1*var(--size)); top:calc(-1*var(--size));
   width:calc(var(--size)*3); height:calc(var(--size)*4);
-  opacity:0; transition:opacity .35s ease .05s;
+  opacity:0; visibility:hidden; pointer-events:none;
+  transition:opacity .35s ease .05s, visibility 0s linear .35s;
+  z-index:0;
+}
+.viewport.flat .net{
+  opacity:1; visibility:visible; pointer-events:auto;
+  transition:opacity .35s ease .05s, visibility 0s;
 }
 
-/* 方格（热点 1..6） */
-.cell{ position:absolute; display:grid; place-items:center; font-weight:800; color:#0f172a; }
-.sq{
+/* 展开网：方格（编号、脉冲目标） */
+.cell{ position:absolute; display:grid; place-items:center; font-weight:900; color:#0f172a; }
+.sqC{
   width:var(--size); height:var(--size); border-radius:16px;
   background:
     linear-gradient(180deg, rgba(255,255,255,.12), rgba(0,0,0,.0)),
@@ -79,15 +100,17 @@ html, body, .stage, .viewport, .dice, .poly, .polyArt { touch-action:none; }
   border:2px solid rgba(255,255,255,.35);
   outline:1px dashed rgba(0,0,0,.08); outline-offset:-6px;
 }
+.sqC span{ font-size:56px; }
+
+/* 6 个正方形的“链 + 十字”布局（与我们行走顺序配合） */
 .s1{ left:calc(1*var(--size)); top:calc(1*var(--size)); } /* 中心 */
 .s2{ left:calc(1*var(--size)); top:calc(0*var(--size)); } /* 上 */
 .s3{ left:calc(2*var(--size)); top:calc(1*var(--size)); } /* 右 */
 .s4{ left:calc(0*var(--size)); top:calc(1*var(--size)); } /* 左 */
 .s5{ left:calc(1*var(--size)); top:calc(2*var(--size)); } /* 下 */
-.s6{ left:calc(1*var(--size)); top:calc(3*var(--size)); } /* 下下（链条） */
-.sq span{ font-size:56px; }
+.s6{ left:calc(1*var(--size)); top:calc(3*var(--size)); } /* 下下（延展链） */
 
-/* 三角（仅用于还原图2的“星形臂”结构） */
+/* 展开网的三角，仅用于形态还原（可继续微调） */
 .triN{
   width:var(--size); height:var(--size);
   background:
@@ -98,16 +121,16 @@ html, body, .stage, .viewport, .dice, .poly, .polyArt { touch-action:none; }
   clip-path:polygon(50% 6%, 96% 94%, 4% 94%);
   transform-origin:50% 50%;
 }
-.tA{ left:calc(2*var(--size)); top:calc(0.6*var(--size)); transform:rotate(35deg)  scale(.85); }
-.tB{ left:calc(2.4*var(--size)); top:calc(1.4*var(--size)); transform:rotate(80deg)  scale(.85); }
-.tC{ left:calc(1.8*var(--size)); top:calc(2.2*var(--size)); transform:rotate(120deg) scale(.85); }
-.tD{ left:calc(1.0*var(--size)); top:calc(2.6*var(--size)); transform:rotate(160deg) scale(.85); }
-.tE{ left:calc(0.2*var(--size)); top:calc(2.2*var(--size)); transform:rotate(200deg) scale(.85); }
-.tF{ left:calc(-0.2*var(--size));top:calc(1.4*var(--size)); transform:rotate(245deg) scale(.85); }
-.tG{ left:calc(0.2*var(--size)); top:calc(0.6*var(--size)); transform:rotate(285deg) scale(.85); }
-.tH{ left:calc(1.0*var(--size)); top:calc(0.2*var(--size)); transform:rotate(325deg) scale(.85); }
+.nA{ left:calc(2*var(--size)); top:calc(0.6*var(--size)); transform:rotate(35deg)  scale(.85); }
+.nB{ left:calc(2.4*var(--size)); top:calc(1.4*var(--size)); transform:rotate(80deg)  scale(.85); }
+.nC{ left:calc(1.8*var(--size)); top:calc(2.2*var(--size)); transform:rotate(120deg) scale(.85); }
+.nD{ left:calc(1.0*var(--size)); top:calc(2.6*var(--size)); transform:rotate(160deg) scale(.85); }
+.nE{ left:calc(0.2*var(--size)); top:calc(2.2*var(--size)); transform:rotate(200deg) scale(.85); }
+.nF{ left:calc(-0.2*var(--size));top:calc(1.4*var(--size)); transform:rotate(245deg) scale(.85); }
+.nG{ left:calc(0.2*var(--size)); top:calc(0.6*var(--size)); transform:rotate(285deg) scale(.85); }
+.nH{ left:calc(1.0*var(--size)); top:calc(0.2*var(--size)); transform:rotate(325deg) scale(.85); }
 
-/* 逐格“走动”的高亮 */
+/* 脉冲高亮 */
 @keyframes pulse {
   0%   { box-shadow:0 0 0 0 rgba(99,102,241,.6); border-color:rgba(99,102,241,.95); }
   100% { box-shadow:0 0 0 14px rgba(99,102,241,0); border-color:rgba(255,255,255,.35); }

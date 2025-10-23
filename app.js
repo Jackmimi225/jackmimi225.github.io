@@ -1,6 +1,7 @@
 /* ================================
    three.js：首屏立体骰子（加载你的 GLB；失败则兜底为正十二面体）
    ================================ */
+console.log('app.js live v3', new Date().toISOString());
 let renderer, scene, cam, diceMesh, raf;
 
 function initThree(){

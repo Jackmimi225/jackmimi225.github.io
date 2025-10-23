@@ -5,7 +5,6 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Dice · Drag → Roll → Unfold (Star Net)</title>
   <link rel="stylesheet" href="styles.css" />
-  <script defer src="https://unpkg.com/three@0.160.0/build/three.min.js"></script>
 </head>
 <body>
   <canvas id="stage"></canvas>
@@ -24,7 +23,7 @@
     </section>
   </div>
 
-  <script defer src="app.js?v=star-net-v2"></script>
+  <!-- 用 ESM 方式加载 app.js（内部会 import three.module.js） -->
+  <script type="module" src="app.js?v=esm-star-net"></script>
 </body>
 </html>
-

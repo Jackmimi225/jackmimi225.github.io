@@ -3,35 +3,37 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>多面体骰子 · Drag → Roll → Unfold → Walk</title>
-  <link rel="stylesheet" href="styles.css?v=cubocta_v1" />
+  <title>正十二面体骰子 · Drag → Roll → Unfold → Walk</title>
+  <link rel="stylesheet" href="styles.css?v=dode_v1" />
 </head>
 <body>
   <div class="stage">
     <div class="viewport" id="vp">
-      <div class="dice" id="dice" draggable="false" aria-label="poly area">
+      <!-- 整个“骰子组件”容器，可拖拽移动 -->
+      <div class="dice" id="dice" draggable="false" aria-label="dodeca die">
 
-        <!-- 掷出数字 2.5s 的中央徽章 -->
+        <!-- three.js 画布挂载点（首屏就能看到正十二面体） -->
+        <div id="gl" class="gl"></div>
+
+        <!-- 掷出数字的中央徽章（显示 2.5 秒） -->
         <div id="badge" class="badge" hidden>1</div>
 
-        <!-- 折叠态：真正的 cuboctahedron（6 方 + 8 三角），由 JS 生成每个面 -->
-        <div id="cube" class="poly show" role="button" aria-label="poly">
-          <div id="solid3d" class="solid3d" aria-hidden="true"></div>
-
-          <!-- 展开态：对应的平面网（6 个编号方格 + 三角，只对方格走步/停留） -->
-          <div class="net" aria-hidden="true">
-            <div class="cell sqC s1" data-num="1"><span>1</span></div>
-            <div class="cell sqC s2" data-num="2"><span>2</span></div>
-            <div class="cell sqC s3" data-num="3"><span>3</span></div>
-            <div class="cell sqC s4" data-num="4"><span>4</span></div>
-            <div class="cell sqC s5" data-num="5"><span>5</span></div>
-            <div class="cell sqC s6" data-num="6"><span>6</span></div>
-
-            <!-- 仅用于形态还原的三角（不参与编号/走步），布局接近你给的“星形 + 链条”网 -->
-            <div class="cell triN nA"></div><div class="cell triN nB"></div>
-            <div class="cell triN nC"></div><div class="cell triN nD"></div>
-            <div class="cell triN nE"></div><div class="cell triN nF"></div>
-            <div class="cell triN nG"></div><div class="cell triN nH"></div>
+        <!-- 展开态容器（进入 flat 状态时显示） -->
+        <div id="cube" class="poly" aria-hidden="true">
+          <div class="net">
+            <!-- 12 个五边形格子（编号 1..12，用于脉冲行走与弹窗） -->
+            <div class="cell pent p1"  data-num="1"><span>1</span></div>
+            <div class="cell pent p2"  data-num="2"><span>2</span></div>
+            <div class="cell pent p3"  data-num="3"><span>3</span></div>
+            <div class="cell pent p4"  data-num="4"><span>4</span></div>
+            <div class="cell pent p5"  data-num="5"><span>5</span></div>
+            <div class="cell pent p6"  data-num="6"><span>6</span></div>
+            <div class="cell pent p7"  data-num="7"><span>7</span></div>
+            <div class="cell pent p8"  data-num="8"><span>8</span></div>
+            <div class="cell pent p9"  data-num="9"><span>9</span></div>
+            <div class="cell pent p10" data-num="10"><span>10</span></div>
+            <div class="cell pent p11" data-num="11"><span>11</span></div>
+            <div class="cell pent p12" data-num="12"><span>12</span></div>
           </div>
         </div>
 
@@ -53,6 +55,10 @@
     </section>
   </div>
 
-  <script src="app.js?v=cubocta_v1"></script>
+  <!-- three.js（全局 THREE，不会触发“camera before initialization”） -->
+  <script src="https://unpkg.com/three@0.158.0/build/three.min.js"></script>
+  <!-- 交互逻辑 -->
+  <script src="app.js?v=dode_v1"></script>
 </body>
 </html>
+

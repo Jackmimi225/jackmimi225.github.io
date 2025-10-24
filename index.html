@@ -3,61 +3,26 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>正十二面体骰子 · Drag → Roll → Unfold → Walk</title>
-  <link rel="stylesheet" href="styles.css?v=glb_debug_4" />
+  <title>GLB 骰子展示</title>
+  <link rel="stylesheet" href="./style.css" />
 </head>
 <body>
-  <div class="stage">
-    <div class="viewport" id="vp">
-      <!-- 可拖拽容器 -->
-      <div class="dice" id="dice" draggable="false" aria-label="dodeca die">
-        <!-- three.js 画布（首屏显示立体骰子） -->
-        <div id="gl" class="gl"></div>
-        <!-- 掷出数字 2.5s 徽章 -->
-        <div id="badge" class="badge" hidden>1</div>
-
-        <!-- 展开态（正十二面体展开图：12 个五边形） -->
-        <div id="cube" class="poly" aria-hidden="true">
-          <div class="net">
-            <div class="cell pent p1"  data-num="1"><span>1</span></div>
-            <div class="cell pent p2"  data-num="2"><span>2</span></div>
-            <div class="cell pent p3"  data-num="3"><span>3</span></div>
-            <div class="cell pent p4"  data-num="4"><span>4</span></div>
-            <div class="cell pent p5"  data-num="5"><span>5</span></div>
-            <div class="cell pent p6"  data-num="6"><span>6</span></div>
-            <div class="cell pent p7"  data-num="7"><span>7</span></div>
-            <div class="cell pent p8"  data-num="8"><span>8</span></div>
-            <div class="cell pent p9"  data-num="9"><span>9</span></div>
-            <div class="cell pent p10" data-num="10"><span>10</span></div>
-            <div class="cell pent p11" data-num="11"><span>11</span></div>
-            <div class="cell pent p12" data-num="12"><span>12</span></div>
-          </div>
-        </div>
+  <div id="app">
+    <div id="overlay" class="overlay">
+      <div class="box">
+        <div class="title">加载中…</div>
+        <div class="bar"><span id="barFill" class="fill" style="width:0%"></span></div>
+        <div id="status" class="status">准备加载模型</div>
       </div>
     </div>
+    <!-- Three.js 会把 WebGL 画布插入到这个容器 -->
+    <div id="scene"></div>
   </div>
 
-  <!-- 弹窗 -->
-  <div id="modal" class="modal" hidden>
-    <div class="modal__backdrop" data-close="1"></div>
-    <section class="modal__card" role="dialog" aria-modal="true" aria-labelledby="mTitle">
-      <button class="modal__close" data-close="1" aria-label="关闭">×</button>
-      <div class="modal__media" id="mMedia"></div>
-      <div class="modal__body">
-        <h3 id="mTitle"></h3>
-        <p id="mDesc"></p>
-        <a id="mLink" class="btn" href="#" target="_blank" rel="noopener">打开链接</a>
-      </div>
-    </section>
-  </div>
+  <!-- 入口脚本（ES Module） -->
+  <script type="module" src="./app.js"></script>
 
-  <!-- three.js & loaders（先 three，后 loaders，再 app.js） -->
-  <script src="https://unpkg.com/three@0.158.0/build/three.min.js"></script>
-  <script src="https://unpkg.com/three@0.158.0/examples/js/loaders/GLTFLoader.js"></script>
-  <script src="https://unpkg.com/three@0.158.0/examples/js/loaders/DRACOLoader.js"></script>
-  <!-- Meshopt 解码器（有些 glb 会用到） -->
-  <script src="https://unpkg.com/meshoptimizer@0.20.0/meshopt_decoder.js"></script>
-
-  <script src="app.js?v=glb_debug_4"></script>
+  <noscript>需要启用 JavaScript 才能查看 3D 模型。</noscript>
 </body>
 </html>
+

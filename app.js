@@ -1,290 +1,152 @@
-/* ================================
-   three.js：首屏立体骰子（优先加载你的 GLB；失败则兜底为正十二面体）
-   ================================ */
+// 使用固定版本的 Three.js CDN（ESM）
+import * as THREE from 'https://unpkg.com/three@0.160.0/build/three.module.js';
+import { OrbitControls } from 'https://unpkg.com/three@0.160.0/examples/jsm/controls/OrbitControls.js';
+import { GLTFLoader } from 'https://unpkg.com/three@0.160.0/examples/jsm/loaders/GLTFLoader.js';
 
-// 心跳日志，方便确认新脚本生效
-console.log('app.js live debug_glb_4', new Date().toISOString());
+// ========== DOM ==========
+const container = document.getElementById('scene');
+const overlay   = document.getElementById('overlay');
+const statusEl  = document.getElementById('status');
+const barFill   = document.getElementById('barFill');
 
-let renderer, scene, cam, diceMesh, raf;
+// 模型路径：请确保 /assets/pingpong.glb?v=2 存在
+const MODEL_URL = 'assets/pingpong.glb?v=2';
 
-function initThree(){
-  const mount = document.getElementById('gl');
-  const w = mount.clientWidth, h = mount.clientHeight;
+// ========== 基础 ==========
+const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: false });
+renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+renderer.setSize(container.clientWidth, container.clientHeight);
+renderer.outputColorSpace = THREE.SRGBColorSpace;
+renderer.toneMapping = THREE.ACESFilmicToneMapping;
+renderer.toneMappingExposure = 1.0;
+renderer.shadowMap.enabled = true;
+container.appendChild(renderer.domElement);
 
-  renderer = new THREE.WebGLRenderer({ antialias:true, alpha:true });
-  renderer.setPixelRatio(Math.min(window.devicePixelRatio||1, 2));
-  renderer.setSize(w, h);
-  mount.appendChild(renderer.domElement);
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(0x0e0f13);
 
-  scene = new THREE.Scene();
-  cam = new THREE.PerspectiveCamera(55, w/h, 0.1, 100);
-  cam.position.set(0, 0, 5);
+// 相机
+const camera = new THREE.PerspectiveCamera(
+  50,
+  container.clientWidth / container.clientHeight,
+  0.01,
+  200
+);
+camera.position.set(0.8, 0.6, 1.2);
 
-  // 灯光
-  scene.add(new THREE.AmbientLight(0xffffff, 0.55));
-  const key = new THREE.DirectionalLight(0xffffff, 0.85);
-  key.position.set(2, 3, 4);
-  scene.add(key);
+// 轨道控制
+const controls = new OrbitControls(camera, renderer.domElement);
+controls.enableDamping = true;
+controls.dampingFactor = 0.065;
+controls.minDistance = 0.2;
+controls.maxDistance = 6;
+controls.target.set(0, 0, 0);
 
-  // 一体化加载（支持无压缩 / Draco / Meshopt）
-  loadGLB_Smart('assets/pingpong.glb?v=4')
-    .then(()=>console.log('[GLB] loaded ✓'))
-    .catch(err=>{
-      console.warn('[GLB] failed → fallback dodeca', err);
-      makeFallbackDodeca();
+// 灯光：柔一点，避免过曝
+const hemi = new THREE.HemisphereLight(0xffffff, 0x222233, 0.8);
+scene.add(hemi);
+
+const dir = new THREE.DirectionalLight(0xffffff, 1.1);
+dir.position.set(2.5, 3.0, 2.0);
+dir.castShadow = true;
+dir.shadow.mapSize.set(1024, 1024);
+scene.add(dir);
+
+// 地板微弱反射（可选）
+const groundGeo = new THREE.CircleGeometry(5, 64);
+const groundMat = new THREE.MeshStandardMaterial({ color: 0x111216, metalness: 0.05, roughness: 0.95 });
+const ground = new THREE.Mesh(groundGeo, groundMat);
+ground.rotation.x = -Math.PI / 2;
+ground.position.y = -0.001;
+ground.receiveShadow = true;
+scene.add(ground);
+
+// ========== 加载模型 ==========
+const loader = new GLTFLoader();
+statusEl.textContent = '开始请求模型文件…';
+
+loader.load(
+  MODEL_URL,
+  (gltf) => {
+    // 成功
+    statusEl.textContent = '模型解析成功，正在放置…';
+
+    const root = gltf.scene || gltf.scenes[0];
+    root.traverse((obj) => {
+      if (obj.isMesh) {
+        obj.castShadow = true;
+        obj.receiveShadow = true;
+        if (obj.material && obj.material.map) {
+          obj.material.map.anisotropy = 8;
+        }
+      }
     });
 
-  // 轻微转动
-  const tick = ()=>{
-    if(diceMesh){
-      diceMesh.rotation.x += 0.003;
-      diceMesh.rotation.y += 0.005;
-    }
-    renderer.render(scene, cam);
-    raf = requestAnimationFrame(tick);
-  };
-  tick();
+    // 居中 & 适配镜头
+    const box = new THREE.Box3().setFromObject(root);
+    const size = new THREE.Vector3();
+    const center = new THREE.Vector3();
+    box.getSize(size);
+    box.getCenter(center);
 
-  // 自适应
-  window.addEventListener('resize', ()=>{
-    const w = mount.clientWidth, h = mount.clientHeight;
-    cam.aspect = w/h; cam.updateProjectionMatrix();
-    renderer.setSize(w, h);
-  });
-}
+    // 将模型中心移到世界原点，稍微抬高一点
+    root.position.x += (root.position.x - center.x);
+    root.position.y += (root.position.y - center.y) + size.y * 0.02;
+    root.position.z += (root.position.z - center.z);
 
-/* ---------- 一体化 GLB 加载 ---------- */
-function loadGLB_Smart(url){
-  return new Promise((resolve, reject)=>{
-    console.log('[GLB] start:', url);
+    scene.add(root);
 
-    const loader = new THREE.GLTFLoader();
+    // 根据包围球调整相机距离
+    const sphere = new THREE.Sphere();
+    box.getBoundingSphere(sphere);
+    const fov = camera.fov * (Math.PI / 180);
+    const dist = (sphere.radius / Math.sin(fov / 2)) * 1.2; // 适度留白
+    camera.position.set(center.x + dist * 0.7, center.y + dist * 0.5, center.z + dist * 0.9);
+    controls.target.copy(new THREE.Vector3(center.x, center.y, center.z));
+    controls.update();
 
-    // DRACO（不走 gstatic，改用 unpkg）
-    if (typeof THREE.DRACOLoader !== 'undefined') {
-      const draco = new THREE.DRACOLoader();
-      draco.setDecoderPath('https://unpkg.com/three@0.158.0/examples/js/libs/draco/');
-      loader.setDRACOLoader(draco);
-      console.log('[GLB] DRACO decoder attached');
+    hideOverlay();
+  },
+  (xhr) => {
+    // 进度
+    if (xhr.lengthComputable) {
+      const p = (xhr.loaded / xhr.total) * 100;
+      barFill.style.width = `${p.toFixed(1)}%`;
+      statusEl.textContent = `下载中 ${p.toFixed(1)}%…`;
     } else {
-      console.log('[GLB] DRACO loader not found (skip)');
+      statusEl.textContent = '下载中…';
     }
-
-    // Meshopt（若你的 glb 使用了 meshopt 压缩）
-    if (typeof MeshoptDecoder !== 'undefined') {
-      loader.setMeshoptDecoder(MeshoptDecoder);
-      console.log('[GLB] Meshopt decoder attached');
-    } else {
-      console.log('[GLB] Meshopt decoder not found (skip)');
-    }
-
-    loader.load(
-      url,
-      (gltf)=>{
-        console.log('[GLB] onLoad ✓', gltf);
-        mountGLB(gltf.scene);
-        resolve(true);
-      },
-      (ev)=>{
-        const p = ev.total ? (ev.loaded/ev.total*100).toFixed(1)+'%' : (ev.loaded||0)+'B';
-        console.log('[GLB] loading...', p);
-      },
-      (err)=>{
-        console.error('[GLB] onError ✗', err);
-        reject(err);
-      }
-    );
-  });
-}
-
-function mountGLB(obj){
-  const box = new THREE.Box3().setFromObject(obj);
-  const size = box.getSize(new THREE.Vector3()).length();
-  const center = box.getCenter(new THREE.Vector3());
-  obj.position.sub(center);                 // 居中
-  obj.scale.multiplyScalar(2.2 / size);     // 缩放到合适尺寸
-  obj.traverse(n=>{ if(n.isMesh){ n.castShadow = n.receiveShadow = true; }});
-  scene.add(obj);
-  diceMesh = obj;
-}
-
-function makeFallbackDodeca(){
-  const geo = new THREE.DodecahedronGeometry(1,0);
-  const mat = new THREE.MeshStandardMaterial({
-    color: 0xcad3ff, metalness: 0.15, roughness: 0.35, flatShading: true
-  });
-  diceMesh = new THREE.Mesh(geo, mat);
-  scene.add(diceMesh);
-}
-
-document.addEventListener('DOMContentLoaded', initThree);
-
-/* ================================
-   交互：拖拽 → 松手摇 → 显示点数 → 展开 → 脉冲到结果 → 弹窗
-   ================================ */
-const vp     = document.getElementById('vp');
-const dice   = document.getElementById('dice');
-const badge  = document.getElementById('badge');
-const modal  = document.getElementById('modal');
-const mTitle = document.getElementById('mTitle');
-const mDesc  = document.getElementById('mDesc');
-const mLink  = document.getElementById('mLink');
-
-// 作品映射（占位，替换成你的）
-const projects = {
-  1:{title:'作品 1',desc:'示例 A',link:'#'},  2:{title:'作品 2',desc:'示例 B',link:'#'},
-  3:{title:'作品 3',desc:'示例 C',link:'#'},  4:{title:'作品 4',desc:'示例 D',link:'#'},
-  5:{title:'作品 5',desc:'示例 E',link:'#'},  6:{title:'作品 6',desc:'示例 F',link:'#'},
-  7:{title:'作品 7',desc:'示例 G',link:'#'},  8:{title:'作品 8',desc:'示例 H',link:'#'},
-  9:{title:'作品 9',desc:'示例 I',link:'#'}, 10:{title:'作品 10',desc:'示例 J',link:'#'},
- 11:{title:'作品 11',desc:'示例 K',link:'#'}, 12:{title:'作品 12',desc:'示例 L',link:'#'},
-};
-
-// 展开图上的 12 个格子
-const ORDER = [1,2,3,4,5,6,7,8,9,10,11,12];
-let faceByNum = {};
-document.querySelectorAll('.cell.pent').forEach(el=>{
-  const n = parseInt(el.dataset.num,10); faceByNum[n]=el;
-});
-
-// 状态
-let isDragging=false, rolling=false;
-let downX=0, downY=0, baseX=0, baseY=0;
-let origin={x:0,y:0};
-let lastMoves=[];
-let unfolded=false;
-let posNum = 1;
-
-// 初始像素定位（居中后写回具体像素，便于拖拽）
-(function initPos(){
-  const r = dice.getBoundingClientRect();
-  origin.x = r.left; origin.y = r.top;
-  dice.style.left = origin.x + 'px';
-  dice.style.top  = origin.y + 'px';
-  dice.style.transform = 'translate(0,0)';
-})();
-
-const sleep = (ms)=>new Promise(r=>setTimeout(r,ms));
-
-/* ---------- 拖拽 ---------- */
-function dragStart(px,py){
-  vp.classList.remove('flat'); unfolded=false;
-  clearHighlights();
-  isDragging = true;
-  const rect = dice.getBoundingClientRect();
-  baseX = rect.left; baseY = rect.top;
-  downX = px; downY = py;
-  dice.classList.add('grab');
-}
-function dragMove(px,py){
-  if(!isDragging) return;
-  const dx = px - downX, dy = py - downY;
-  dice.style.left = (baseX + dx) + 'px';
-  dice.style.top  = (baseY + dy) + 'px';
-  lastMoves.push({dx,dy,t:performance.now()});
-  if(lastMoves.length>32) lastMoves.shift();
-  if(diceMesh){ // 纯视觉反馈
-    diceMesh.rotation.x += dy*0.002;
-    diceMesh.rotation.y -= dx*0.002;
+  },
+  (err) => {
+    // 失败
+    console.error('GLB 加载失败：', err);
+    statusEl.textContent = '加载失败：请检查路径 /assets/pingpong.glb?v=2 是否存在（大小写、目录、缓存）。';
+    barFill.style.width = '0%';
+    // 不再放置兜底几何体，避免“十二面体”误导
   }
+);
+
+// ========== 自适应 ==========
+function onResize(){
+  const w = container.clientWidth;
+  const h = container.clientHeight;
+  camera.aspect = w / h;
+  camera.updateProjectionMatrix();
+  renderer.setSize(w, h);
 }
-async function dragEnd(){
-  if(!isDragging) return;
-  isDragging=false; dice.classList.remove('grab');
-  await startRound();
+window.addEventListener('resize', onResize);
+
+// ========== 动画循环 ==========
+function tick(){
+  controls.update();
+  renderer.render(scene, camera);
+  requestAnimationFrame(tick);
+}
+tick();
+
+// ========== 覆盖层控制 ==========
+function hideOverlay(){
+  overlay.classList.add('hidden');
+  statusEl.textContent = '';
 }
 
-// 事件绑定
-dice.addEventListener('mousedown', e=>{
-  if(rolling||e.button!==0) return; e.preventDefault();
-  dragStart(e.clientX,e.clientY);
-  const mm = e=>dragMove(e.clientX,e.clientY);
-  const mu = async()=>{ document.removeEventListener('mousemove',mm); await dragEnd(); };
-  document.addEventListener('mousemove',mm);
-  document.addEventListener('mouseup',mu,{once:true});
-});
-dice.addEventListener('touchstart', e=>{
-  if(rolling||!e.touches[0]) return;
-  const t=e.touches[0]; e.preventDefault();
-  dragStart(t.clientX,t.clientY);
-  const tm = e=>{ if(!e.touches[0]) return; const t=e.touches[0]; dragMove(t.clientX,t.clientY); };
-  const tu = async()=>{ document.removeEventListener('touchmove',tm); await dragEnd(); };
-  document.addEventListener('touchmove',tm,{passive:false});
-  document.addEventListener('touchend',tu,{once:true});
-});
-
-/* ---------- 一回合 ---------- */
-async function startRound(){
-  const {steps,final} = getRollPlan();
-  const n = await animateRoll(steps, final);
-  showBadge(n); await sleep(2500); hideBadge();
-  await enterUnfold();
-  await walkTo(n);
-  await sleep(2000);
-  openProject(n);
-}
-
-function rollEnergy(){
-  const r=lastMoves.slice(-6);
-  if(!r.length) return 0;
-  const d=r[r.length-1];
-  return Math.hypot(d.dx,d.dy);
-}
-function getRollPlan(){
-  const e=rollEnergy();
-  const steps=Math.min(30,Math.max(12,Math.round(e/10)+12)); // 12~30 步
-  const final=1+Math.floor(Math.random()*12);
-  return {steps,final};
-}
-function animateRoll(steps,final){
-  return new Promise(resolve=>{
-    rolling=true; let i=0;
-    (function loop(){
-      const t=i/steps, iv=40+360*t*t; // ease-out
-      if(diceMesh){
-        diceMesh.rotation.x += 0.25 + 0.02*i;
-        diceMesh.rotation.y += 0.35 + 0.018*i;
-        diceMesh.rotation.z += 0.18;
-      }
-      i++; if(i<steps) setTimeout(loop,iv); else { rolling=false; resolve(final); }
-    })();
-  });
-}
-function showBadge(n){ badge.textContent=n; badge.hidden=false; }
-function hideBadge(){ badge.hidden=true; }
-
-async function enterUnfold(){
-  if(!unfolded){ vp.classList.add('flat'); }
-  await sleep(320); // 等展开图显现动画
-  setCurrent(posNum);
-  unfolded=true;
-}
-
-/* ---------- 展开图脉冲行走 ---------- */
-const STEP_MS = 340;
-async function walkTo(targetNum){
-  const curIdx = ORDER.indexOf(posNum);
-  const tarIdx = ORDER.indexOf(targetNum);
-  if(curIdx===-1 || tarIdx===-1){ setCurrent(targetNum); posNum=targetNum; return; }
-  let steps = (tarIdx - curIdx + ORDER.length) % ORDER.length;
-  if(steps===0){ pulse(faceByNum[targetNum]); setCurrent(targetNum); posNum=targetNum; await sleep(STEP_MS); return; }
-  for(let k=0;k<steps;k++){
-    const nextIdx=(ORDER.indexOf(posNum)+1)%ORDER.length;
-    posNum=ORDER[nextIdx];
-    pulse(faceByNum[posNum]); setCurrent(posNum);
-    await sleep(STEP_MS);
-  }
-}
-function pulse(el){ if(!el) return; el.classList.remove('active'); void el.offsetWidth; el.classList.add('active'); }
-function setCurrent(n){ clearHighlights(); const el=faceByNum[n]; if(el) el.classList.add('current'); }
-function clearHighlights(){ document.querySelectorAll('.cell.active,.cell.current').forEach(el=>el.classList.remove('active','current')); }
-
-/* ---------- 弹窗 ---------- */
-function openProject(num){
-  const item = projects[num] || { title:'作品 '+num, desc:'', link:'' };
-  mTitle.textContent = item.title;
-  mDesc.textContent  = item.desc;
-  if(item.link){ mLink.href=item.link; mLink.style.display='inline-block'; } else { mLink.style.display='none'; }
-  modal.hidden = false;
-}
-modal.addEventListener('click', e=>{ if(e.target.dataset.close) modal.hidden=true; });

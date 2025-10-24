@@ -1,10 +1,7 @@
 :root{
-  --bg:#0e0f13;
-  --fg:#e8e8ec;
-  --muted:#9aa0a6;
-  --card:#17181d;
-  --accent:#5da9ff;
+  --bg:#0e0f13; --fg:#e8e8ec; --muted:#9aa0a6; --card:#17181d; --accent:#5da9ff;
 }
+
 
 *{ box-sizing: border-box; }
 html,body,#app{ height:100%; margin:0; }

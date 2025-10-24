@@ -5,6 +5,15 @@
   <meta name="viewport" content="width=device-width,initial-scale=1" />
   <title>GLB 骰子展示</title>
   <link rel="stylesheet" href="./styles.css" />
+
+  <!-- Import Map：让 OrbitControls/GLTFLoader 内部的 `import 'three'` 能被解析 -->
+  <script type="importmap">
+  {
+    "imports": {
+      "three": "https://unpkg.com/three@0.160.0/build/three.module.js"
+    }
+  }
+  </script>
 </head>
 <body>
   <div id="app">
@@ -25,4 +34,3 @@
   <noscript>需要启用 JavaScript 才能查看 3D 模型。</noscript>
 </body>
 </html>
-

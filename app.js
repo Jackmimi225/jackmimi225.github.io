@@ -1,3 +1,6 @@
+console.log('[app] loaded', new Date().toISOString());
+window.addEventListener('error', e => console.log('[app] error', e.message));
+
 // 使用固定版本的 Three.js CDN（ESM）
 import * as THREE from 'https://unpkg.com/three@0.160.0/build/three.module.js';
 import { OrbitControls } from 'https://unpkg.com/three@0.160.0/examples/jsm/controls/OrbitControls.js';

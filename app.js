@@ -1,7 +1,10 @@
 /* ================================
-   three.js：首屏立体骰子（加载你的 GLB；失败则兜底为正十二面体）
+   three.js：首屏立体骰子（优先加载你的 GLB；失败则兜底为正十二面体）
    ================================ */
-console.log('app.js live v3', new Date().toISOString());
+
+// 心跳日志，方便确认新脚本生效
+console.log('app.js live debug_glb_4', new Date().toISOString());
+
 let renderer, scene, cam, diceMesh, raf;
 
 function initThree(){
@@ -23,8 +26,13 @@ function initThree(){
   key.position.set(2, 3, 4);
   scene.add(key);
 
-  // 尝试加载你的 GLB（先无 DRACO → 再带 DRACO），都失败则兜底
-  tryLoadModel('assets/pingpong.glb?v=2');
+  // 一体化加载（支持无压缩 / Draco / Meshopt）
+  loadGLB_Smart('assets/pingpong.glb?v=4')
+    .then(()=>console.log('[GLB] loaded ✓'))
+    .catch(err=>{
+      console.warn('[GLB] failed → fallback dodeca', err);
+      makeFallbackDodeca();
+    });
 
   // 轻微转动
   const tick = ()=>{
@@ -45,34 +53,50 @@ function initThree(){
   });
 }
 
-/* ---------- GLB 加载：先无 DRACO，再用 unpkg 的 DRACO 解码器 ---------- */
-function loadGLB_NoDraco(url){
+/* ---------- 一体化 GLB 加载 ---------- */
+function loadGLB_Smart(url){
   return new Promise((resolve, reject)=>{
-    const loader = new THREE.GLTFLoader();
-    loader.load(url, (gltf)=>{
-      mountGLB(gltf.scene); resolve(true);
-    }, undefined, (err)=>{ console.error('GLB(无DRACO) 失败:', err); reject(err); });
-  });
-}
-function loadGLB_WithDraco(url){
-  return new Promise((resolve, reject)=>{
-    const loader = new THREE.GLTFLoader();
-    const draco  = new THREE.DRACOLoader();
-    // 不走 gstatic，改用 unpkg，国内可用性更高
-    draco.setDecoderPath('https://unpkg.com/three@0.158.0/examples/js/libs/draco/');
-    loader.setDRACOLoader(draco);
+    console.log('[GLB] start:', url);
 
-    loader.load(url, (gltf)=>{
-      mountGLB(gltf.scene); resolve(true);
-    }, undefined, (err)=>{ console.error('GLB(带DRACO) 失败:', err); reject(err); });
+    const loader = new THREE.GLTFLoader();
+
+    // DRACO（不走 gstatic，改用 unpkg）
+    if (typeof THREE.DRACOLoader !== 'undefined') {
+      const draco = new THREE.DRACOLoader();
+      draco.setDecoderPath('https://unpkg.com/three@0.158.0/examples/js/libs/draco/');
+      loader.setDRACOLoader(draco);
+      console.log('[GLB] DRACO decoder attached');
+    } else {
+      console.log('[GLB] DRACO loader not found (skip)');
+    }
+
+    // Meshopt（若你的 glb 使用了 meshopt 压缩）
+    if (typeof MeshoptDecoder !== 'undefined') {
+      loader.setMeshoptDecoder(MeshoptDecoder);
+      console.log('[GLB] Meshopt decoder attached');
+    } else {
+      console.log('[GLB] Meshopt decoder not found (skip)');
+    }
+
+    loader.load(
+      url,
+      (gltf)=>{
+        console.log('[GLB] onLoad ✓', gltf);
+        mountGLB(gltf.scene);
+        resolve(true);
+      },
+      (ev)=>{
+        const p = ev.total ? (ev.loaded/ev.total*100).toFixed(1)+'%' : (ev.loaded||0)+'B';
+        console.log('[GLB] loading...', p);
+      },
+      (err)=>{
+        console.error('[GLB] onError ✗', err);
+        reject(err);
+      }
+    );
   });
 }
-async function tryLoadModel(url){
-  let ok = false;
-  try { ok = await loadGLB_NoDraco(url); } catch(e){}
-  if(!ok){ try { ok = await loadGLB_WithDraco(url); } catch(e){} }
-  if(!ok){ console.warn('两种方式都失败，使用兜底十二面体'); makeFallbackDodeca(); }
-}
+
 function mountGLB(obj){
   const box = new THREE.Box3().setFromObject(obj);
   const size = box.getSize(new THREE.Vector3()).length();
@@ -82,8 +106,8 @@ function mountGLB(obj){
   obj.traverse(n=>{ if(n.isMesh){ n.castShadow = n.receiveShadow = true; }});
   scene.add(obj);
   diceMesh = obj;
-  console.log('GLB loaded ✓');
 }
+
 function makeFallbackDodeca(){
   const geo = new THREE.DodecahedronGeometry(1,0);
   const mat = new THREE.MeshStandardMaterial({

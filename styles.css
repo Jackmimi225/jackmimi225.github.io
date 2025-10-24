@@ -1,114 +1,57 @@
-*{box-sizing:border-box}
 :root{
-  --size:300px;        /* 组件整体大小（three 画布 + 拖拽盒） */
-  --ink:#e5e7eb;
-  --edge:#334155;
-  --grid: repeating-linear-gradient(0deg, rgba(255,255,255,.08) 0 1px, transparent 1px 12px),
-          repeating-linear-gradient(90deg, rgba(255,255,255,.08) 0 1px, transparent 1px 12px);
-  --stepX: calc(var(--size)*0.86);
-  --stepY: calc(var(--size)*0.78);
-}
-html,body{height:100%}
-body{
-  margin:0;
-  background:radial-gradient(1100px 680px at 20% -20%, #243b7a 18%, transparent 60%), #0b0f1a;
-  color:var(--ink);
-}
-.stage{position:fixed; inset:0}
-.viewport{position:absolute; inset:0; perspective:1100px; overflow:hidden}
-.viewport.flat{ perspective:none }
-
-/* 拖拽盒 */
-html, body, .stage, .viewport, .dice { touch-action:none; }
-.dice{ -webkit-user-select:none; user-select:none; -webkit-user-drag:none; cursor:grab }
-.dice.grab{ cursor:grabbing }
-.dice{
-  position:absolute; width:var(--size); height:var(--size);
-  left:calc(50vw - var(--size)/2); top:calc(50vh - var(--size)/2);
+  --bg: #0e0f13;
+  --fg: #e8e8ec;
+  --muted: #9aa0a6;
+  --card: #17181d;
+  --accent: #5da9ff;
 }
 
-/* three 画布挂载容器 */
-.gl{
-  position:absolute; inset:0; border-radius:20px; overflow:hidden;
-  z-index:2; pointer-events:none; /* 让拖拽事件落到 .dice 上 */
+*{ box-sizing: border-box; }
+html,body,#app{ height:100%; margin:0; }
+body{ background:var(--bg); color:var(--fg); font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, "Helvetica Neue", Arial, "Noto Sans", "Apple Color Emoji","Segoe UI Emoji"; }
+
+#scene{
+  position:relative;
+  width:100%;
+  height:100%;
+  overflow:hidden;
 }
 
-/* 掷出数字徽章 */
-.badge{
-  position:absolute; left:50%; top:50%; translate:-50% -50%;
-  min-width:100px; padding:.35rem .75rem; border-radius:14px;
-  background:#111827; color:#fefefe; font-size:48px; font-weight:900;
-  border:1px solid #374151; box-shadow:0 10px 30px rgba(0,0,0,.45);
-  pointer-events:none; z-index:4;
+/* 加载覆盖层 */
+.overlay{
+  position:fixed;
+  inset:0;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  background: linear-gradient(180deg, rgba(14,15,19,.92), rgba(14,15,19,.60));
+  backdrop-filter: blur(3px);
+  z-index:10;
 }
-.badge[hidden]{ display:none!important }
+.overlay.hidden{ display:none; }
 
-/* 展开态：十二面体展开图（默认隐藏，进入 flat 时显示） */
-.poly{ position:absolute; inset:0; z-index:1; }
-.net{
-  position:absolute; left:calc(-1*var(--size)); top:calc(-1*var(--size));
-  width:calc(var(--size)*4.2); height:calc(var(--size)*4.2);
-  opacity:0; visibility:hidden; pointer-events:none;
-  transition:opacity .35s ease .05s, visibility 0s linear .35s;
+.overlay .box{
+  width:min(88vw, 420px);
+  background:var(--card);
+  border:1px solid rgba(255,255,255,.06);
+  border-radius:16px;
+  padding:18px 16px 14px;
+  box-shadow: 0 10px 30px rgba(0,0,0,.35);
 }
-.viewport.flat .net{
-  opacity:1; visibility:visible; pointer-events:auto;
-  transition:opacity .35s ease .05s, visibility 0s;
+.overlay .title{
+  font-weight:700; margin-bottom:10px; letter-spacing:.3px;
+}
+.overlay .bar{
+  height:8px; width:100%; background:#22252d; border-radius:999px; overflow:hidden;
+  outline:1px solid rgba(255,255,255,.06);
+}
+.overlay .fill{
+  display:block; height:100%; width:0%; background:var(--accent);
+  transition:width .15s ease;
+}
+.overlay .status{
+  margin-top:10px; font-size:.9rem; color:var(--muted);
 }
 
-/* 五边形格子（编号 1..12） */
-.cell{ position:absolute; display:grid; place-items:center; font-weight:900; color:#0f172a; }
-.pent{
-  --w: calc(var(--size)*0.95);
-  width:var(--w); height:calc(var(--w)*0.95);
-  background:
-    linear-gradient(180deg, rgba(255,255,255,.12), rgba(0,0,0,.0)),
-    var(--grid),
-    linear-gradient(135deg,#e6ebff,#c5d0ff);
-  border:2px solid rgba(255,255,255,.35);
-  outline:1px dashed rgba(0,0,0,.08); outline-offset:-6px;
-  clip-path:polygon(50% 1.5%, 96% 34%, 79% 98.5%, 21% 98.5%, 4% 34%);
-  border-radius:14px;
-}
-.pent span{ font-size:40px }
-
-/* 展开图布局（中心+环形）——可根据美术再微调 */
-.p1  { left:calc(2*var(--stepX)); top:calc(2*var(--stepY)); }
-.p2  { left:calc(2*var(--stepX)); top:calc(1*var(--stepY)); }
-.p3  { left:calc(3*var(--stepX)); top:calc(1.7*var(--stepY)); transform:rotate(18deg); }
-.p4  { left:calc(3*var(--stepX)); top:calc(2.9*var(--stepY)); transform:rotate(36deg); }
-.p5  { left:calc(2*var(--stepX)); top:calc(3.6*var(--stepY)); transform:rotate(54deg); }
-.p6  { left:calc(1*var(--stepX)); top:calc(2.9*var(--stepY)); transform:rotate(-36deg); }
-.p7  { left:calc(1*var(--stepX)); top:calc(1.7*var(--stepY)); transform:rotate(-18deg); }
-.p8  { left:calc(2*var(--stepX)); top:calc(0*var(--stepY)); }
-.p9  { left:calc(3.2*var(--stepX)); top:calc(0.9*var(--stepY)); transform:rotate(10deg); }
-.p10 { left:calc(3.6*var(--stepX)); top:calc(2.9*var(--stepY)); transform:rotate(36deg); }
-.p11 { left:calc(2*var(--stepX)); top:calc(4.7*var(--stepY)); transform:rotate(56deg); }
-.p12 { left:calc(0.4*var(--stepX)); top:calc(2.9*var(--stepY)); transform:rotate(-36deg); }
-
-/* 脉冲效果 */
-@keyframes pulse {
-  0%   { box-shadow:0 0 0 0 rgba(99,102,241,.6); border-color:rgba(99,102,241,.95); }
-  100% { box-shadow:0 0 0 14px rgba(99,102,241,0); border-color:rgba(255,255,255,.35); }
-}
-.cell.active{ animation:pulse .36s ease-out; border-color:rgba(99,102,241,.95)!important; }
-.cell.current{ border-color:#60a5fa !important; box-shadow:0 0 0 4px rgba(96,165,250,.25) inset; }
-
-/* 弹窗 */
-.modal[hidden]{display:none!important}
-.modal{position:fixed; inset:0; display:grid; place-items:center; z-index:50}
-.modal__backdrop{position:absolute; inset:0; background:rgba(0,0,0,.45); backdrop-filter:blur(2px)}
-.modal__card{
-  position:relative; z-index:1; width:min(720px,92vw); min-height:220px;
-  background:#0b0f1a; border:1px solid #2a3248; color:#e5e7eb;
-  border-radius:16px; overflow:hidden; display:grid; grid-template-columns:40% 1fr;
-  box-shadow:0 30px 60px rgba(0,0,0,.5)
-}
-@media (max-width:720px){ .modal__card{ grid-template-columns:1fr } }
-.modal__media{ background:linear-gradient(135deg,#dbeafe,#fde68a); min-height:180px }
-.modal__body{ padding:1rem 1.25rem }
-.modal__body h3{ margin:.25rem 0 }
-.modal__body p{ color:#c7ccd8; margin:.25rem 0 }
-.modal__close{ position:absolute; right:10px; top:6px; width:36px; height:36px; border-radius:10px;
-  border:1px solid #3b4460; background:#12182a; color:#e5e7eb; cursor:pointer }
-.btn{ border:1px solid #3b4460; background:#12182a; color:#e5e7eb; border-radius:10px; padding:.5rem .9rem; display:inline-block; text-decoration:none }
+/* 画布元素让它铺满容器 */
+canvas{ display:block; width:100%; height:100%; }

@@ -1,5 +1,5 @@
-// app.js — Cuboctahedron dice → proper net board (fix1)
-console.log('[app] cuboctahedron fix1', new Date().toISOString());
+// app.js — Cuboctahedron dice → proper net board (fix2)
+console.log('[app] cuboctahedron fix2', new Date().toISOString());
 
 // ===== Three.js from CDN =====
 import * as THREE from 'https://unpkg.com/three@0.160.0/build/three.module.js';
@@ -59,7 +59,7 @@ const raw = [
 const s = 0.8;
 const V = raw.map(v => new THREE.Vector3(v[0]*s, v[1]*s, v[2]*s));
 
-// 6 squares: planes x=±1, y=±1, z=±1
+// 6 squares
 const S = [
   { id: 1,  verts:[1,3,7,5] },  // x=+1
   { id: 2,  verts:[0,2,6,4] },  // x=-1
@@ -68,20 +68,14 @@ const S = [
   { id: 5,  verts:[4,5,8,9] },  // z=+1
   { id: 6,  verts:[6,7,10,11] } // z=-1
 ];
-
-// 8 triangles: near each octant
+// 8 triangles
 const T = [
-  { id: 7,  verts:[1,5,8]   }, // + + +
-  { id: 8,  verts:[1,10,7]  }, // + + -
-  { id: 9,  verts:[3,5,9]   }, // + - +
-  { id:10,  verts:[3,7,11]  }, // + - -
-  { id:11,  verts:[0,4,8]   }, // - + +
-  { id:12,  verts:[0,10,6]  }, // - + -
-  { id:13,  verts:[2,9,4]   }, // - - +
-  { id:14,  verts:[2,11,6]  }  // - - -
+  { id: 7,  verts:[1,5,8]   }, { id: 8,  verts:[1,10,7]  },
+  { id: 9,  verts:[3,5,9]   }, { id:10,  verts:[3,7,11]  },
+  { id:11,  verts:[0,4,8]   }, { id:12,  verts:[0,10,6]  },
+  { id:13,  verts:[2,9,4]   }, { id:14,  verts:[2,11,6]  }
 ];
 
-// Build geometry with groups (1..14)
 function triFanToTris(indices){ return [[indices[0],indices[1],indices[2]], [indices[0],indices[2],indices[3]]]; }
 const faceMap = [];
 S.forEach(sq => faceMap.push({ id:sq.id, type:'sq', tris: triFanToTris(sq.verts) }));
@@ -103,8 +97,6 @@ const dieGeo = new THREE.BufferGeometry();
   dieGeo.setAttribute('position', new THREE.Float32BufferAttribute(pos,3));
   dieGeo.setAttribute('normal',   new THREE.Float32BufferAttribute(nrm,3));
   dieGeo.setAttribute('uv',       new THREE.Float32BufferAttribute(uv,2));
-
-  // set groups by face id
   let triOffset = 0;
   faceMap.forEach(F=>{
     dieGeo.addGroup(triOffset*3, F.tris.length*3, F.id-1);
@@ -113,7 +105,6 @@ const dieGeo = new THREE.BufferGeometry();
   dieGeo.computeBoundingSphere();
 }
 
-// Materials: 1..6 (squares) 深蓝，7..14（三角）浅蓝，均绘数字
 function makeFaceTex(num, fg, bg){
   const c=document.createElement('canvas'); c.width=c.height=256;
   const x=c.getContext('2d');
@@ -134,8 +125,6 @@ const die = new THREE.Mesh(dieGeo, faceMats);
 die.castShadow = true;
 die.position.set(0,0.35,0);
 scene.add(die);
-
-// camera look
 controls.target.copy(die.position);
 controls.update();
 camera.lookAt(die.position);
@@ -145,7 +134,10 @@ const raycaster = new THREE.Raycaster();
 const mouseNDC  = new THREE.Vector2();
 const groundPlane = new THREE.Plane(new THREE.Vector3(0,1,0), 0);
 
-let isDragging=false, lastPos=new THREE.Vector3(), vel2=new THREE.Vector2(0,0), angVel=new THREE.Vector3();
+let isDragging = false;                // ✅ 这里只声明一次
+let lastPos = new THREE.Vector3();
+let vel2    = new THREE.Vector2(0,0);
+let angVel  = new THREE.Vector3();
 
 function screenToGround(x,y,out){
   mouseNDC.set((x/container.clientWidth)*2-1, -(y/container.clientHeight)*2+1);
@@ -174,7 +166,6 @@ function startShake(strength){
   state = State.SHAKING;
   const s = THREE.MathUtils.clamp(strength*6 + (Math.random()*1.2+0.3), 0.8, 6.0);
   angVel.set((Math.random()*2-1)*s, (Math.random()*2-1)*s, (Math.random()*2-1)*s);
-  // 点数 1..14
   rollResult = 1 + Math.floor(Math.random()*14);
 }
 function tickShake(dt){
@@ -189,16 +180,12 @@ function tickShake(dt){
   }
 }
 
-// ======== Proper NET (参考你图3的折线式布局) ========
-// 6 个正方形 + 8 个三角形排布到平面（编号沿用 1..14）
+// ======== Net / Board ========
 const boardRoot = new THREE.Group(); boardRoot.visible=false; scene.add(boardRoot);
 const tileSize = 1.0, triH = tileSize*Math.sqrt(3)/2;
-
 function matTex(num, bg){ return new THREE.MeshBasicMaterial({ map: makeFaceTex(num, '#e8e8ec', bg) }); }
 
 const tiles=[], pathOrder=[];
-
-// Squares位置：一条 4 格横带 + 上下各 1 格（更像示意图的“折线”）
 const sqLayout = [
   {id:1, x:0, z:0}, {id:2, x:1, z:0}, {id:3, x:2, z:0}, {id:4, x:3, z:0},
   {id:5, x:2, z:1}, {id:6, x:1, z:-1},
@@ -210,8 +197,6 @@ sqLayout.forEach(L=>{
   tiles.push({id:L.id, mesh:m, pos:m.position.clone()});
   pathOrder.push(L.id);
 });
-
-// Triangles围绕边缘（参考图3那种“齿状”展开）
 function triMesh(id, rotRad, x, z){
   const g=new THREE.BufferGeometry();
   g.setAttribute('position', new THREE.BufferAttribute(new Float32Array([
@@ -225,7 +210,6 @@ function triMesh(id, rotRad, x, z){
   tiles.push({id:id, mesh:m, pos:m.position.clone()});
   pathOrder.push(id);
 }
-// 布局（确保 8 个三角）：左右各 4 个，方向与网图一致
 triMesh(7,  Math.PI/2,  -0.5,  0.0);
 triMesh(8,  Math.PI/2,   0.5, -1.0);
 triMesh(9, -Math.PI/2,   0.5,  1.0);
@@ -235,7 +219,6 @@ triMesh(12, Math.PI/2,   2.5, -0.5);
 triMesh(13,-Math.PI/2,   1.5,  1.0);
 triMesh(14,-Math.PI/2,   3.5,  0.0);
 
-// 起始棋子
 const pawn = new THREE.Mesh(
   new THREE.SphereGeometry(0.15, 32, 16),
   new THREE.MeshStandardMaterial({ color:0x5da9ff, metalness:0.3, roughness:0.4, emissive:0x10253a, emissiveIntensity:0.4 })
@@ -265,12 +248,10 @@ function pulseTile(id){
   })();
 }
 function movePawnSteps(n){
-  // 直接按 id=1..14 映射
-  const id = ((n-1)%14)+1;
+  const id = ((n-1)%14)+1; // 1..14
   movePawnToId(id);
 }
 
-// 展开/返回
 function toUnfold(){
   if(state===State.UNFOLD || state===State.BOARD) return;
   state = State.UNFOLD;
@@ -323,5 +304,4 @@ function tick(){
   renderer.render(scene,camera);
   requestAnimationFrame(tick);
 }
-let isDragging=false; // 放到最后，避免 TDZ
 tick();

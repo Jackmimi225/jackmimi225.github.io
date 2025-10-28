@@ -1,13 +1,14 @@
-// app.js — Cuboctahedron dice → proper net board (fix2)
-console.log('[app] cuboctahedron fix2', new Date().toISOString());
+// app.js — Cuboctahedron Dice → Net Board (fix2 + DoubleSide)
+console.log('[app] cuboctahedron dice loaded', new Date().toISOString());
 
-// ===== Three.js from CDN =====
+// ===== Three.js (ESM via CDN) =====
 import * as THREE from 'https://unpkg.com/three@0.160.0/build/three.module.js';
 import { OrbitControls } from 'https://unpkg.com/three@0.160.0/examples/jsm/controls/OrbitControls.js';
 
-// ===== Scene base =====
+// ===== Scene / Renderer =====
 const container = document.getElementById('scene');
-const renderer  = new THREE.WebGLRenderer({ antialias:true });
+
+const renderer = new THREE.WebGLRenderer({ antialias: true });
 renderer.setPixelRatio(Math.min(2, window.devicePixelRatio || 1));
 renderer.setSize(container.clientWidth, container.clientHeight);
 renderer.outputColorSpace = THREE.SRGBColorSpace;
@@ -19,38 +20,47 @@ container.appendChild(renderer.domElement);
 const scene = new THREE.Scene();
 scene.background = new THREE.Color(0x0e0f13);
 
-const camera = new THREE.PerspectiveCamera(55, container.clientWidth/container.clientHeight, 0.01, 200);
+const camera = new THREE.PerspectiveCamera(
+  55,
+  container.clientWidth / container.clientHeight,
+  0.01,
+  200
+);
 camera.position.set(3.2, 2.2, 3.4);
 
 const controls = new OrbitControls(camera, renderer.domElement);
-controls.enableDamping = true; controls.dampingFactor = 0.08;
+controls.enableDamping = true;
+controls.dampingFactor = 0.08;
 controls.enablePan = false;
-controls.target.set(0,0.35,0);
+controls.minDistance = 1.2;     // 避免钻进骰子
+controls.maxDistance = 8;
+controls.target.set(0, 0.35, 0);
 controls.update();
 
 const hemi = new THREE.HemisphereLight(0xffffff, 0x20222a, 0.95);
 scene.add(hemi);
 const dir = new THREE.DirectionalLight(0xffffff, 1.25);
-dir.position.set(4,6,5); dir.castShadow = true;
-dir.shadow.mapSize.set(1024,1024);
+dir.position.set(4, 6, 5);
+dir.castShadow = true;
+dir.shadow.mapSize.set(1024, 1024);
 scene.add(dir);
 
 const ground = new THREE.Mesh(
   new THREE.CircleGeometry(20, 80),
-  new THREE.MeshStandardMaterial({ color:0x101216, metalness:0.05, roughness:0.95 })
+  new THREE.MeshStandardMaterial({ color: 0x101216, metalness: 0.05, roughness: 0.95 })
 );
-ground.rotation.x = -Math.PI/2;
+ground.rotation.x = -Math.PI / 2;
 ground.position.y = -0.02;
 ground.receiveShadow = true;
 scene.add(ground);
 
-// ===== States =====
-const State = { DIE:'die', SHAKING:'shaking', UNFOLD:'unfold', BOARD:'board' };
+// ===== State =====
+const State = { DIE: 'die', SHAKING: 'shaking', UNFOLD: 'unfold', BOARD: 'board' };
 let state = State.DIE;
 let rollResult = 1;
 
-// ======== Build a correct cuboctahedron (截半立方体) ========
-// Vertex set: (±1,±1,0), (±1,0,±1), (0,±1,±1)
+// ======== Build Cuboctahedron (截半立方体) ========
+// 顶点集： (±1,±1,0), (±1,0,±1), (0,±1,±1)
 const raw = [
   [-1, 1, 0], [ 1, 1, 0], [-1,-1, 0], [ 1,-1, 0],
   [-1, 0, 1], [ 1, 0, 1], [-1, 0,-1], [ 1, 0,-1],
@@ -59,7 +69,7 @@ const raw = [
 const s = 0.8;
 const V = raw.map(v => new THREE.Vector3(v[0]*s, v[1]*s, v[2]*s));
 
-// 6 squares
+// 6个正方形面（id 1..6）
 const S = [
   { id: 1,  verts:[1,3,7,5] },  // x=+1
   { id: 2,  verts:[0,2,6,4] },  // x=-1
@@ -68,7 +78,7 @@ const S = [
   { id: 5,  verts:[4,5,8,9] },  // z=+1
   { id: 6,  verts:[6,7,10,11] } // z=-1
 ];
-// 8 triangles
+// 8个三角形面（id 7..14）
 const T = [
   { id: 7,  verts:[1,5,8]   }, { id: 8,  verts:[1,10,7]  },
   { id: 9,  verts:[3,5,9]   }, { id:10,  verts:[3,7,11]  },
@@ -81,6 +91,7 @@ const faceMap = [];
 S.forEach(sq => faceMap.push({ id:sq.id, type:'sq', tris: triFanToTris(sq.verts) }));
 T.forEach(tr => faceMap.push({ id:tr.id, type:'tri', tris: [tr.verts] }));
 
+// 组装单一几何 + 多材质分组
 const dieGeo = new THREE.BufferGeometry();
 {
   const pos=[], nrm=[], uv=[];
@@ -105,22 +116,26 @@ const dieGeo = new THREE.BufferGeometry();
   dieGeo.computeBoundingSphere();
 }
 
+// 制作带数字的材质（双面，避免“镂空”）
 function makeFaceTex(num, fg, bg){
   const c=document.createElement('canvas'); c.width=c.height=256;
   const x=c.getContext('2d');
   x.fillStyle=bg; x.fillRect(0,0,256,256);
   x.fillStyle=fg; x.font='bold 140px ui-sans-serif,system-ui,-apple-system';
-  x.textAlign='center'; x.textBaseline='middle'; x.fillText(String(num),128,138);
+  x.textAlign='center'; x.textBaseline='middle';
+  x.fillText(String(num),128,138);
   const t=new THREE.CanvasTexture(c); t.colorSpace=THREE.SRGBColorSpace; return t;
 }
+
 const faceMats=[];
 for(let i=1;i<=14;i++){
   const isSq = i<=6;
   faceMats.push(new THREE.MeshStandardMaterial({
     map: makeFaceTex(i, '#e8e8ec', isSq ? '#1b283a' : '#203241'),
-    metalness:0.2, roughness:0.9
+    metalness:0.2, roughness:0.9, side: THREE.DoubleSide
   }));
 }
+
 const die = new THREE.Mesh(dieGeo, faceMats);
 die.castShadow = true;
 die.position.set(0,0.35,0);
@@ -129,12 +144,12 @@ controls.target.copy(die.position);
 controls.update();
 camera.lookAt(die.position);
 
-// ===== Drag → shake =====
+// ===== Drag to move → release to shake =====
 const raycaster = new THREE.Raycaster();
 const mouseNDC  = new THREE.Vector2();
 const groundPlane = new THREE.Plane(new THREE.Vector3(0,1,0), 0);
 
-let isDragging = false;                // ✅ 这里只声明一次
+let isDragging = false;            // 仅此一处声明
 let lastPos = new THREE.Vector3();
 let vel2    = new THREE.Vector2(0,0);
 let angVel  = new THREE.Vector3();
@@ -166,7 +181,7 @@ function startShake(strength){
   state = State.SHAKING;
   const s = THREE.MathUtils.clamp(strength*6 + (Math.random()*1.2+0.3), 0.8, 6.0);
   angVel.set((Math.random()*2-1)*s, (Math.random()*2-1)*s, (Math.random()*2-1)*s);
-  rollResult = 1 + Math.floor(Math.random()*14);
+  rollResult = 1 + Math.floor(Math.random()*14); // 1..14
 }
 function tickShake(dt){
   die.rotation.x += angVel.x*dt;
@@ -176,14 +191,20 @@ function tickShake(dt){
   if(angVel.length()<0.18){
     angVel.set(0,0,0);
     state = State.DIE;
-    setTimeout(()=>toUnfold(), 2000);
+    setTimeout(()=>toUnfold(), 2000); // 停2秒后展开
   }
 }
 
 // ======== Net / Board ========
 const boardRoot = new THREE.Group(); boardRoot.visible=false; scene.add(boardRoot);
 const tileSize = 1.0, triH = tileSize*Math.sqrt(3)/2;
-function matTex(num, bg){ return new THREE.MeshBasicMaterial({ map: makeFaceTex(num, '#e8e8ec', bg) }); }
+
+function matTex(num, bg){
+  return new THREE.MeshBasicMaterial({
+    map: makeFaceTex(num, '#e8e8ec', bg),
+    side: THREE.DoubleSide
+  });
+}
 
 const tiles=[], pathOrder=[];
 const sqLayout = [
@@ -197,11 +218,13 @@ sqLayout.forEach(L=>{
   tiles.push({id:L.id, mesh:m, pos:m.position.clone()});
   pathOrder.push(L.id);
 });
+
 function triMesh(id, rotRad, x, z){
   const g=new THREE.BufferGeometry();
   g.setAttribute('position', new THREE.BufferAttribute(new Float32Array([
     -tileSize/2,0,0,  tileSize/2,0,0,  0,triH,0
   ]),3));
+  g.setIndex([0,1,2]);
   g.computeVertexNormals();
   const m=new THREE.Mesh(g, matTex(id, '#203241'));
   m.rotation.x = -Math.PI/2; m.rotation.z = rotRad||0;
@@ -210,6 +233,7 @@ function triMesh(id, rotRad, x, z){
   tiles.push({id:id, mesh:m, pos:m.position.clone()});
   pathOrder.push(id);
 }
+// 8个三角格（布局为示例，可按需求再精调）
 triMesh(7,  Math.PI/2,  -0.5,  0.0);
 triMesh(8,  Math.PI/2,   0.5, -1.0);
 triMesh(9, -Math.PI/2,   0.5,  1.0);
@@ -219,6 +243,7 @@ triMesh(12, Math.PI/2,   2.5, -0.5);
 triMesh(13,-Math.PI/2,   1.5,  1.0);
 triMesh(14,-Math.PI/2,   3.5,  0.0);
 
+// 棋子
 const pawn = new THREE.Mesh(
   new THREE.SphereGeometry(0.15, 32, 16),
   new THREE.MeshStandardMaterial({ color:0x5da9ff, metalness:0.3, roughness:0.4, emissive:0x10253a, emissiveIntensity:0.4 })
@@ -258,6 +283,7 @@ function toUnfold(){
   boardRoot.scale.setScalar(0.001);
   boardRoot.position.copy(die.position);
   boardRoot.visible = true;
+
   const T = 700; const t0 = performance.now();
   (function anim(){
     const k = Math.min((performance.now()-t0)/T, 1);
@@ -271,6 +297,8 @@ function toUnfold(){
     }
   })();
 }
+
+// 返回按钮（可选）
 const backBtn = document.getElementById('btnBack');
 if(backBtn) backBtn.onclick = ()=> {
   if(state===State.DIE) return;
@@ -278,7 +306,7 @@ if(backBtn) backBtn.onclick = ()=> {
   controls.target.copy(die.position); controls.update();
 };
 
-// ===== tween util =====
+// ===== 小工具：补间 =====
 function tweenVec3(from, to, ms){
   const start=from.clone(); const T=ms; const t0=performance.now();
   (function go(){
@@ -289,9 +317,9 @@ function tweenVec3(from, to, ms){
   })();
 }
 
-// ===== resize & loop =====
+// ===== Resize & Loop =====
 window.addEventListener('resize', ()=>{
-  camera.aspect=container.clientWidth/container.clientHeight;
+  camera.aspect = container.clientWidth / container.clientHeight;
   camera.updateProjectionMatrix();
   renderer.setSize(container.clientWidth, container.clientHeight);
 });

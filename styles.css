@@ -1,54 +1,19 @@
 :root{
   --bg:#0e0f13; --fg:#e8e8ec; --muted:#9aa0a6; --card:#17181d; --accent:#5da9ff;
 }
+*{box-sizing:border-box}html,body,#scene{height:100%;margin:0}
+body{background:var(--bg);color:var(--fg);font-family:ui-sans-serif,system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial}
 
+canvas{display:block;width:100%;height:100%}
 
-*{ box-sizing: border-box; }
-html,body,#app{ height:100%; margin:0; }
-body{ background:var(--bg); color:var(--fg); font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, "Helvetica Neue", Arial, "Noto Sans", "Apple Color Emoji","Segoe UI Emoji"; }
-
-#scene{
-  position:relative;
-  width:100%;
-  height:100%;
-  overflow:hidden;
+.hud{
+  position:fixed; left:16px; top:16px; padding:10px 12px; border-radius:12px;
+  background:rgba(23,24,29,.7); border:1px solid rgba(255,255,255,.06);
+  display:flex; gap:12px; align-items:center; z-index:10; backdrop-filter:blur(3px)
 }
-
-/* 加载覆盖层 */
-.overlay{
-  position:fixed;
-  inset:0;
-  display:flex;
-  align-items:center;
-  justify-content:center;
-  background: linear-gradient(180deg, rgba(14,15,19,.92), rgba(14,15,19,.60));
-  backdrop-filter: blur(3px);
-  z-index:10;
+#btnBack{
+  padding:8px 10px; border-radius:10px; border:1px solid rgba(255,255,255,.1);
+  color:var(--fg); background:#1f232b; cursor:pointer
 }
-.overlay.hidden{ display:none; }
-
-.overlay .box{
-  width:min(88vw, 420px);
-  background:var(--card);
-  border:1px solid rgba(255,255,255,.06);
-  border-radius:16px;
-  padding:18px 16px 14px;
-  box-shadow: 0 10px 30px rgba(0,0,0,.35);
-}
-.overlay .title{
-  font-weight:700; margin-bottom:10px; letter-spacing:.3px;
-}
-.overlay .bar{
-  height:8px; width:100%; background:#22252d; border-radius:999px; overflow:hidden;
-  outline:1px solid rgba(255,255,255,.06);
-}
-.overlay .fill{
-  display:block; height:100%; width:0%; background:var(--accent);
-  transition:width .15s ease;
-}
-.overlay .status{
-  margin-top:10px; font-size:.9rem; color:var(--muted);
-}
-
-/* 画布元素让它铺满容器 */
-canvas{ display:block; width:100%; height:100%; }
+#btnBack:hover{ background:#242a33 }
+#tip{ color:var(--muted); font-size:14px }
